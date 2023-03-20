@@ -1,4 +1,7 @@
+mod get;
+
 use clap::{arg, Command};
+use std::env;
 
 fn main() {
     let matches = Command::new("get")
@@ -11,17 +14,14 @@ fn main() {
                     .about("saves the changes")
                     .arg(arg!([message] "optional message")))
         .get_matches();
+
     match matches.subcommand() {
         Some(("init", _)) => {
-            // if sub_matches
-            println!("repo initialized")
+            get::init(env::current_dir().expect("can't get current dir path"));
         }
         Some(("commit", sub_matches)) => {
             let msg = sub_matches.get_one::<String>("message");
-            match msg {
-                Some(message) => println!("{}", message),
-                None => println!("default commit message"),
-            }
+            get::commit(msg);
         },
         _ => unreachable!("unknown command"),
     }
