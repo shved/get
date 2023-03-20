@@ -10,19 +10,22 @@ fn main() {
         .about("Like git but worse")
         .subcommand_required(true)
         .subcommand(Command::new("init").about("creates new repo in currenct directory"))
-        .subcommand(Command::new("commit")
-                    .about("saves the changes")
-                    .arg(arg!([message] "optional message")))
+        .subcommand(
+            Command::new("commit")
+                .about("saves the changes")
+                .arg(arg!([message] "optional message")),
+        )
         .get_matches();
 
     match matches.subcommand() {
         Some(("init", _)) => {
-            get::init(env::current_dir().expect("can't get current dir path"));
+            let mut cur_path = env::current_dir().expect("can't get current dir path");
+            get::init(&mut cur_path);
         }
         Some(("commit", sub_matches)) => {
             let msg = sub_matches.get_one::<String>("message");
             get::commit(msg);
-        },
+        }
         _ => unreachable!("unknown command"),
     }
 }
