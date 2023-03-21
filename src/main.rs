@@ -19,8 +19,8 @@ fn main() {
 
     match matches.subcommand() {
         Some(("init", _)) => {
-            let mut cur_path = env::current_dir().expect("can't get current dir path");
-            get::init(&mut cur_path);
+            let mut root_path = env::current_dir().expect("can't get current dir path");
+            get::init(&mut root_path);
         }
         Some(("commit", sub_matches)) => {
             let msg = sub_matches.get_one::<String>("message");

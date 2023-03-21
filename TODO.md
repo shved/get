@@ -1,9 +1,12 @@
-* init
-* commit
-* restore
-* refactor error handling so every panic exit with proper exit codes and panics handeled on the top level only
-* log
-* make it work from any place, not just repo root directory
-* branches
-* diff
-* push/pull?
+- [X] init
+- [ ] refactor it to use std::fs::DirBuilder in init
+- [ ] refactor it to split bin command and lib implementation
+- [ ] refactor it to use declarative clap style
+- [ ] commit
+- [ ] restore
+- [ ] refactor error handling so every call returns result to the top level and panics are handled with proper exit code in main.rs
+- [ ] diff
+- [ ] branches
+- [ ] log
+- [ ] make it work from any place, not just repo root directory
+- [ ] push/pull?
