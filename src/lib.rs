@@ -1,8 +1,11 @@
+mod object;
+mod worktree;
+
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::time::SystemTime;
 
-// TODO change type to byte array
 const EMPTY_REF: &str = "0000000000000000000000000000000000000000";
 
 pub fn init(cur_path: &mut PathBuf) {
@@ -61,9 +64,8 @@ fn create_files(cur_path: &mut PathBuf) {
     cur_path.pop();
 }
 
-pub fn commit(msg: Option<&String>) {
-    match msg {
-        Some(message) => println!("{}", message),
-        None => println!("default commit message"), // TODO change it to smthg more sensible.
-    }
+pub fn commit(msg: Option<&str>) {
+    let message = msg.unwrap_or("default commit message"); // TODO change it to smthg more sensible
+
+    worktree::commit(message, SystemTime::now());
 }

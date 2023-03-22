@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 clap = "4.1.11"
+sha1 = "0.10.5"
+walkdir = "2.3.3"

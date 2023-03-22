@@ -22,7 +22,7 @@ fn main() {
         }
         Some(("commit", sub_matches)) => {
             let msg = sub_matches.get_one::<String>("message");
-            get::commit(msg);
+            get::commit(msg.map(|s| s.as_str()));
         }
         _ => unreachable!("unknown command"),
     }
