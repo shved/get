@@ -1,6 +1,6 @@
 - [X] init
+- [X] refactor it to split bin command and lib implementation
 - [ ] refactor it to use std::fs::DirBuilder in init
-- [ ] refactor it to split bin command and lib implementation
 - [ ] refactor it to use declarative clap style
 - [ ] commit
 - [ ] restore

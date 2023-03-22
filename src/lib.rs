@@ -5,7 +5,7 @@ use std::path::PathBuf;
 // TODO change type to byte array
 const EMPTY_REF: &str = "0000000000000000000000000000000000000000";
 
-pub(crate) fn init(cur_path: &mut PathBuf) {
+pub fn init(cur_path: &mut PathBuf) {
     cur_path.push(".get");
 
     let repo_initialized = cur_path.as_path().is_dir();
@@ -61,7 +61,7 @@ fn create_files(cur_path: &mut PathBuf) {
     cur_path.pop();
 }
 
-pub(crate) fn commit(msg: Option<&String>) {
+pub fn commit(msg: Option<&String>) {
     match msg {
         Some(message) => println!("{}", message),
         None => println!("default commit message"), // TODO change it to smthg more sensible.

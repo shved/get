@@ -1,5 +1,3 @@
-mod get;
-
 use clap::{arg, Command};
 use std::env;
 
