@@ -1,27 +1,47 @@
 use crate::object;
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 struct Worktree {
-    #[allow(dead_code)]
     graph: Option<object::Object>,
 }
 
 impl Worktree {
-    fn fs_snapshot(p: PathBuf) -> *mut Worktree {
-        for entry in WalkDir::new(p.as_path().to_str().unwrap()).follow_links(false) {
-            println!("{}", entry.unwrap().path().display())
+    fn fs_snapshot(p: PathBuf, ignore: &[&str]) -> *mut Worktree {
+        let repo_root = p.as_path();
+        for entry in WalkDir::new(repo_root.to_str().unwrap())
+            .follow_links(false)
+            .into_iter()
+            .filter_entry(|e| !is_ignored(e, repo_root, ignore))
+            // Skip first entry (the root of repo).
+            .skip(1)
+        {
+            dbg!(entry.unwrap());
         }
 
         &mut Worktree { graph: None }
     }
 }
 
-// TODO fix it printing the whole /home structure
-pub(crate) fn commit(_message: &str, _timestamp: SystemTime) {
-    // println!("{}", env::current_dir().unwrap().display());
-    // panic!("asdf");
-    let _ = Worktree::fs_snapshot(env::current_dir().unwrap());
+pub(crate) fn commit(_message: &str, ignore: &[&str], _timestamp: SystemTime) {
+    let _ = Worktree::fs_snapshot(env::current_dir().unwrap(), ignore);
+}
+
+fn is_ignored(e: &DirEntry, repo_root: &Path, ignored: &[&str]) -> bool {
+    // TODO handle None from repo_root.parent()
+    for i in ignored.iter() {
+        if e.path()
+            .strip_prefix(repo_root.parent().unwrap())
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains(i)
+        {
+            return true;
+        }
+    }
+
+    false
 }

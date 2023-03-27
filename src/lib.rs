@@ -6,7 +6,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-const EMPTY_REF: &str = "0000000000000000000000000000000000000000";
+static EMPTY_REF: &str = "0000000000000000000000000000000000000000";
 
 pub fn init(cur_path: &mut PathBuf) {
     cur_path.push(".get");
@@ -64,8 +64,8 @@ fn create_files(cur_path: &mut PathBuf) {
     cur_path.pop();
 }
 
-pub fn commit(msg: Option<&str>) {
+pub fn commit(msg: Option<&str>, ignore: &[&str]) {
     let message = msg.unwrap_or("default commit message"); // TODO change it to smthg more sensible
 
-    worktree::commit(message, SystemTime::now());
+    worktree::commit(message, ignore, SystemTime::now());
 }

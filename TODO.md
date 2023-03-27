@@ -6,8 +6,12 @@
 - [ ] refactor it to use declarative clap style
 - [ ] restore
 - [ ] refactor error handling so every call returns result to the top level and panics are handled with proper exit code in main.rs
+- [ ] fight unwraps
+- [ ] add support of getignore file
+- [ ] delete last commit
 - [ ] diff
 - [ ] branches
 - [ ] log
-- [ ] make it work from any place, not just repo root directory
+- [ ] make it work from any place, not just repo root directory (using Path.ancestors)
 - [ ] push/pull?
+- [ ] handle interrupt signal trying to clean up after the current job is interrupted

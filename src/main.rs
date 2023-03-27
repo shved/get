@@ -17,13 +17,16 @@ fn main() {
 
     match matches.subcommand() {
         Some(("init", _)) => {
-            let mut root_path = env::current_dir().expect("can't get current dir path");
+            let mut root_path = env::current_dir().expect("get: can't get current dir path");
             get::init(&mut root_path);
         }
         Some(("commit", sub_matches)) => {
             let msg = sub_matches.get_one::<String>("message");
-            get::commit(msg.map(|s| s.as_str()));
+            // TODO make it support getignore file with proper ingore patterns
+            // and store the slice in static segment.
+            let getignore = &[".git", ".gitignore", "target", ".get", ".getignore"];
+            get::commit(msg.map(|s| s.as_str()), getignore);
         }
-        _ => unreachable!("unknown command"),
+        _ => unreachable!("get: unknown subcommand"),
     }
 }
