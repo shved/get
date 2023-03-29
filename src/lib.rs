@@ -6,10 +6,17 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-static EMPTY_REF: &str = "0000000000000000000000000000000000000000";
+const EMPTY_REF: &str = "0000000000000000000000000000000000000000";
+const REPO_DIR: &str = ".get";
+const HEAD_FILE: &str = "HEAD";
+const LOG_FILE: &str = "LOG";
+const OBJECTS_DIR: &str = "objects";
+const COMMITS_DIR: &str = "commit";
+const TREE_DIR: &str = "tree";
+const BLOB_DIR: &str = "blob";
 
 pub fn init(cur_path: &mut PathBuf) {
-    cur_path.push(".get");
+    cur_path.push(REPO_DIR);
 
     let repo_initialized = cur_path.as_path().is_dir();
     if repo_initialized {
@@ -32,13 +39,13 @@ fn create_dirs(cur_path: &mut PathBuf) {
         .expect("Unable to set proper file ext permissions");
 
     // Crete `.get/objects`.
-    create_dir(cur_path, "objects");
+    create_dir(cur_path, OBJECTS_DIR);
 
     // Crete `.get/objects/*` dirs.
-    cur_path.push("objects");
-    create_dir(cur_path, "commit");
-    create_dir(cur_path, "tree");
-    create_dir(cur_path, "blob");
+    cur_path.push(OBJECTS_DIR);
+    create_dir(cur_path, COMMITS_DIR);
+    create_dir(cur_path, TREE_DIR);
+    create_dir(cur_path, BLOB_DIR);
     cur_path.pop();
 }
 
@@ -51,21 +58,21 @@ fn create_dir(cur_path: &mut PathBuf, name: &str) {
 }
 
 fn create_files(cur_path: &mut PathBuf) {
-    cur_path.push("HEAD");
+    cur_path.push(HEAD_FILE);
     fs::write(cur_path.as_path(), EMPTY_REF).expect("Unable to write head");
     fs::set_permissions(cur_path.as_path(), fs::Permissions::from_mode(0o644))
         .expect("Unable to set proper file ext permissions");
     cur_path.pop();
 
-    cur_path.push("LOG");
+    cur_path.push(LOG_FILE);
     fs::File::create(cur_path.as_path()).expect("Unable to create LOG file");
     fs::set_permissions(cur_path.as_path(), fs::Permissions::from_mode(0o644))
         .expect("Unable to set proper file ext permissions");
     cur_path.pop();
 }
 
-pub fn commit(msg: Option<&str>, ignore: &[&str]) {
+pub fn commit(cur_path: &mut PathBuf, msg: Option<&str>, ignore: &[&str]) {
     let message = msg.unwrap_or("default commit message"); // TODO change it to smthg more sensible
 
-    worktree::commit(message, ignore, SystemTime::now());
+    worktree::commit(cur_path, message, ignore, SystemTime::now());
 }

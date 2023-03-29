@@ -7,7 +7,7 @@
 - [ ] restore
 - [ ] refactor error handling so every call returns result to the top level and panics are handled with proper exit code in main.rs
 - [ ] fight unwraps
-- [ ] add support of getignore file
+- [ ] add support of getignore file (or even better just single .get.toml file with all the repo preferences and store options in static segment)
 - [ ] delete last commit
 - [ ] diff
 - [ ] branches
@@ -15,3 +15,4 @@
 - [ ] make it work from any place, not just repo root directory (using Path.ancestors)
 - [ ] push/pull?
 - [ ] handle interrupt signal trying to clean up after the current job is interrupted
+- [ ] test for: access writes issues, empty dirs, ...
