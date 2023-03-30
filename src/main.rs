@@ -16,21 +16,14 @@ fn main() {
         .get_matches();
 
     let mut root_path = env::current_dir().expect("get: can't get current dir path");
+
     match matches.subcommand() {
         Some(("init", _)) => {
             get::init(&mut root_path);
         }
         Some(("commit", sub_matches)) => {
             let msg = sub_matches.get_one::<String>("message");
-            let getignore = &[
-                ".git",
-                ".gitignore",
-                "target",
-                ".get",
-                ".getignore",
-                "ignoredfolder",
-            ];
-            get::commit(&mut root_path, msg.map(|s| s.as_str()), getignore);
+            get::commit(root_path, msg.map(|s| s.as_str()));
         }
         _ => unreachable!("get: unknown subcommand"),
     }

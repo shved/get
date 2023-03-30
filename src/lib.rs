@@ -14,6 +14,14 @@ const OBJECTS_DIR: &str = "objects";
 const COMMITS_DIR: &str = "commit";
 const TREE_DIR: &str = "tree";
 const BLOB_DIR: &str = "blob";
+const IGNORE: &[&str] = &[
+    ".git",
+    ".gitignore",
+    "target",
+    ".get",
+    "ignoredfolder",
+    ".get.toml",
+];
 
 pub fn init(cur_path: &mut PathBuf) {
     cur_path.push(REPO_DIR);
@@ -71,8 +79,8 @@ fn create_files(cur_path: &mut PathBuf) {
     cur_path.pop();
 }
 
-pub fn commit(cur_path: &mut PathBuf, msg: Option<&str>, ignore: &[&str]) {
+pub fn commit(cur_path: PathBuf, msg: Option<&str>) {
     let message = msg.unwrap_or("default commit message"); // TODO change it to smthg more sensible
 
-    worktree::commit(cur_path, message, ignore, SystemTime::now());
+    worktree::commit(cur_path, message, IGNORE, SystemTime::now());
 }
