@@ -24,7 +24,7 @@ impl Worktree {
         let parent_commit_hash = read_head(p.as_path());
 
         let commit = Object::Commit {
-            path: p.clone(),
+            path: p,
             parent_commit_digest: parent_commit_hash,
             digest: String::default(),
             commit_msg: message.to_string(),
@@ -48,7 +48,6 @@ impl Worktree {
 fn build_tree(wt: &mut Worktree, cur_i: NodeId, ignore: &[&str]) {
     for entry in fs::read_dir(wt.0[cur_i].obj.path())
         .expect("get: can't read dir")
-        .into_iter()
         .filter(|e| !is_ignored(e.as_ref().unwrap().path(), ignore))
     {
         let e = entry.expect("get: couldn't read fs entry"); // We fail explicitly here in case of issues with fs access.
