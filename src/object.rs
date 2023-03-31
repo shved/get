@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+#[derive(Debug)]
 pub(crate) enum Object {
     Commit {
         path: PathBuf,

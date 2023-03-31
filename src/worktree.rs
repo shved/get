@@ -6,31 +6,24 @@ use std::time::SystemTime;
 
 type NodeId = usize;
 
+#[derive(Debug)]
 struct Node {
     parent: Option<NodeId>,
     children: Vec<NodeId>,
-    id: NodeId,
+    obj: Object,
 }
 
-struct Worktree {
-    index: Vec<Object>,
-    graph: Node,
-}
+#[derive(Debug)]
+/// Datastructure to hold all the file objects for a commit. Uses vector as a memory arena, but
+/// elements are linked by the indexes used as pointers. It is very handy since we only need a tree
+/// to build it, calculate digests and put it on the disk.
+struct Worktree(Vec<Node>);
 
 impl Worktree {
     fn from_files(p: PathBuf, message: &str, ignore: &[&str], timestamp: SystemTime) -> Worktree {
-        let mut wt = Worktree {
-            index: Vec::new(),
-            graph: Node {
-                id: 0,
-                parent: None,
-                children: Vec::new(),
-            },
-        };
-
         let parent_commit_hash = read_head(p.as_path());
 
-        let mut commit = Object::Commit {
+        let commit = Object::Commit {
             path: p.clone(),
             parent_commit_digest: parent_commit_hash,
             digest: String::default(),
@@ -38,37 +31,72 @@ impl Worktree {
             timestamp,
         };
 
-        wt.index.push(commit);
+        let node = Node {
+            parent: None,
+            children: Vec::new(),
+            obj: commit,
+        };
 
-        traverse(&mut wt, 0, ignore);
+        let mut wt = Worktree(vec![node]);
+
+        build_tree(&mut wt, 0, ignore);
 
         wt
     }
 }
 
-fn traverse(wt: &mut Worktree, cur_node: NodeId, ignore: &[&str]) {
-    for entry in fs::read_dir(wt.index[cur_node].path())
+fn build_tree(wt: &mut Worktree, cur_i: NodeId, ignore: &[&str]) {
+    for entry in fs::read_dir(wt.0[cur_i].obj.path())
         .expect("get: can't read dir")
         .into_iter()
         .filter(|e| !is_ignored(e.as_ref().unwrap().path(), ignore))
     {
-        // We intentionally panic here to avoid silent errors with files access.
-        let e = entry.unwrap();
+        let e = entry.expect("get: couldn't read fs entry"); // We fail explicitly here in case of issues with fs access.
         let ftype = e.file_type().unwrap();
         if ftype.is_dir() {
-            // TODO
-            // * make object
-            // * push object to index
-            // * make node with connection to parent
-            // * add the node to parents children
+            let tree = Object::Tree {
+                path: e.path(),
+                content: String::new(),
+                digest: String::new(),
+            };
+
+            let node = Node {
+                parent: Some(cur_i),
+                children: Vec::new(),
+                obj: tree,
+            };
+
+            wt.0.push(node); // Put new node in arena vector.
+            let new_cur = wt.0.len() - 1;
+
+            wt.0[cur_i].children.push(new_cur); // Update parent's children with new node.
+
+            build_tree(wt, new_cur, ignore);
         } else if ftype.is_file() {
+            let blob = Object::Blob {
+                path: e.path(),
+                content: String::new(),
+                digest: String::new(),
+            };
+
+            let node = Node {
+                parent: Some(cur_i),
+                children: Vec::new(),
+                obj: blob,
+            };
+
+            wt.0.push(node); // Put new node in arena vector.
+            let new_cur = wt.0.len() - 1;
+
+            wt.0[cur_i].children.push(new_cur); // Update parent's children with new node.
         } else if ftype.is_symlink() {
+            panic!("get: we don't deal with symlinks here, please use real CVS like git")
         }
     }
 }
 
 pub(crate) fn commit(cur_path: PathBuf, message: &str, ignore: &[&str], timestamp: SystemTime) {
-    let _ = Worktree::from_files(cur_path, message, ignore, timestamp);
+    dbg!(Worktree::from_files(cur_path, message, ignore, timestamp));
 }
 
 fn is_ignored(e: PathBuf, ignored: &[&str]) -> bool {
