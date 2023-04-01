@@ -73,7 +73,7 @@ impl Object {
                 content.push_str(obj_str);
                 content.push_str("\n");
             }
-            Self::Blob { .. } => unreachable!(), // For blob content is a text file contains.
+            Self::Blob { .. } => (), // For blob a content is what file contains.
         }
     }
 
@@ -81,7 +81,7 @@ impl Object {
     // before digest is calculated.
     pub fn obj_content_line(&self) -> String {
         match self {
-            Self::Commit { .. } => unreachable!(), // Commit can't be representet as an obj string.
+            Self::Commit { .. } => String::new(), // Commit can't be representet as an obj string.
             Self::Tree { path, digest, .. } => format!(
                 "{}\t{}\t{}",
                 super::TREE_DIR,
