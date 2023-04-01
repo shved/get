@@ -38,8 +38,8 @@ pub fn init(cur_path: &mut PathBuf) {
     println!("Repo in `{}` created!", cur_path.display());
 }
 
-// TODO unit test this (tree and permissions)
-// TODO remake to use std::fs::DirBuilder
+// TODO Unit test this (tree and permissions).
+// TODO Remake to use std::fs::DirBuilder.
 fn create_dirs(cur_path: &mut PathBuf) {
     // Crete `.get`.
     fs::create_dir(cur_path.as_path()).expect("Unable to create repo directory.");
@@ -80,7 +80,8 @@ fn create_files(cur_path: &mut PathBuf) {
 }
 
 pub fn commit(cur_path: PathBuf, msg: Option<&str>) {
-    let message = msg.unwrap_or("default commit message"); // TODO change it to smthg more sensible
+    // TODO Change default message to smthg more sensible.
+    let message = msg.unwrap_or("default commit message");
 
     worktree::commit(cur_path, message, IGNORE, SystemTime::now());
 }

@@ -1,6 +1,7 @@
 - [X] init
 - [X] refactor it to split bin command and lib implementation
 - [ ] commit
+- [ ] may be refactor it to read all the file tree in memory once and then operate with it in memory
 - [ ] guard repo with lock of filesystem node while doing job
 - [ ] refactor it to use std::fs::DirBuilder in init
 - [ ] refactor it to use declarative clap style

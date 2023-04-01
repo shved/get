@@ -1,8 +1,11 @@
 use crate::object::Object;
 
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
+
+use users;
 
 type NodeId = usize;
 
@@ -26,8 +29,14 @@ impl Worktree {
         let commit = Object::Commit {
             path: p,
             parent_commit_digest: parent_commit_hash,
+            content: String::default(),
             digest: String::default(),
             commit_msg: message.to_string(),
+            // TODO Try to use .get.toml config and use current user id as a fallback.
+            author: users::get_current_username()
+                .unwrap_or_else(|| OsString::from("unknown author"))
+                .into_string()
+                .unwrap(),
             timestamp,
         };
 
@@ -40,6 +49,8 @@ impl Worktree {
         let mut wt = Worktree(vec![node]);
 
         build_tree(&mut wt, 0, ignore);
+
+        // TODO Collect content and calculate digest for commit here.
 
         wt
     }
@@ -55,9 +66,14 @@ fn build_tree(wt: &mut Worktree, cur_i: NodeId, ignore: &[&str]) {
         if ftype.is_dir() {
             let tree = Object::Tree {
                 path: e.path(),
-                content: String::new(),
-                digest: String::new(),
+                content: String::default(),
+                digest: String::default(),
             };
+
+            // Append a parent object content so that it will be used to calculate parents digest.
+            wt.0[cur_i]
+                .obj
+                .append_content(tree.obj_content_line().as_str());
 
             let node = Node {
                 parent: Some(cur_i),
@@ -71,12 +87,22 @@ fn build_tree(wt: &mut Worktree, cur_i: NodeId, ignore: &[&str]) {
             wt.0[cur_i].children.push(new_cur); // Update parent's children with new node.
 
             build_tree(wt, new_cur, ignore);
+
+            // TODO Worth sorting lines before sum.
+            // tree.calc_digest();
         } else if ftype.is_file() {
-            let blob = Object::Blob {
+            let mut blob = Object::Blob {
                 path: e.path(),
-                content: String::new(),
-                digest: String::new(),
+                digest: String::default(),
             };
+
+            // Calculate and update digest of a blob object.
+            blob.update_digest();
+
+            // Append a parent object content so that it will be used to calculate parents digest.
+            wt.0[cur_i]
+                .obj
+                .append_content(blob.obj_content_line().as_str());
 
             let node = Node {
                 parent: Some(cur_i),
@@ -89,7 +115,7 @@ fn build_tree(wt: &mut Worktree, cur_i: NodeId, ignore: &[&str]) {
 
             wt.0[cur_i].children.push(new_cur); // Update parent's children with new node.
         } else if ftype.is_symlink() {
-            panic!("get: we don't deal with symlinks here, please use real CVS like git")
+            unimplemented!("get: we don't deal with symlinks here, please use real CVS like git")
         }
     }
 }
@@ -99,7 +125,7 @@ pub(crate) fn commit(cur_path: PathBuf, message: &str, ignore: &[&str], timestam
 }
 
 fn is_ignored(e: PathBuf, ignored: &[&str]) -> bool {
-    // TODO handle None from repo_root.parent()
+    // TODO Handle None from repo_root.parent().
     for i in ignored.iter() {
         if e.strip_prefix(e.parent().unwrap())
             .unwrap()
