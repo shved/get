@@ -11,7 +11,6 @@ type NodeId = usize;
 
 #[derive(Debug)]
 struct Node {
-    parent: Option<NodeId>,
     children: Vec<NodeId>,
     obj: Object,
 }
@@ -29,7 +28,7 @@ impl Worktree {
         let commit = Object::Commit {
             path: p,
             parent_commit_digest: parent_commit_hash,
-            content: String::default(),
+            content: Vec::new(),
             digest: String::default(),
             commit_msg: message.to_string(),
             // TODO Try to use .get.toml config and use current user id as a fallback.
@@ -41,7 +40,6 @@ impl Worktree {
         };
 
         let node = Node {
-            parent: None,
             children: Vec::new(),
             obj: commit,
         };
@@ -50,7 +48,7 @@ impl Worktree {
 
         build_tree(&mut wt, 0, ignore);
 
-        // TODO Collect content and calculate digest for commit here.
+        wt.0[0].obj.update_digest();
 
         wt
     }
@@ -66,17 +64,14 @@ fn build_tree(wt: &mut Worktree, cur_i: NodeId, ignore: &[&str]) {
         if ftype.is_dir() {
             let tree = Object::Tree {
                 path: e.path(),
-                content: String::default(),
+                content: Vec::new(),
                 digest: String::default(),
             };
 
             // Append a parent object content so that it will be used to calculate parents digest.
-            wt.0[cur_i]
-                .obj
-                .append_content(tree.obj_content_line().as_str());
+            wt.0[cur_i].obj.append_content(tree.obj_content_line());
 
             let node = Node {
-                parent: Some(cur_i),
                 children: Vec::new(),
                 obj: tree,
             };
@@ -88,8 +83,7 @@ fn build_tree(wt: &mut Worktree, cur_i: NodeId, ignore: &[&str]) {
 
             build_tree(wt, new_cur, ignore);
 
-            // TODO Worth sorting lines before sum.
-            // tree.calc_digest();
+            wt.0[cur_i].obj.update_digest();
         } else if ftype.is_file() {
             let mut blob = Object::Blob {
                 path: e.path(),
@@ -100,12 +94,9 @@ fn build_tree(wt: &mut Worktree, cur_i: NodeId, ignore: &[&str]) {
             blob.update_digest();
 
             // Append a parent object content so that it will be used to calculate parents digest.
-            wt.0[cur_i]
-                .obj
-                .append_content(blob.obj_content_line().as_str());
+            wt.0[cur_i].obj.append_content(blob.obj_content_line());
 
             let node = Node {
-                parent: Some(cur_i),
                 children: Vec::new(),
                 obj: blob,
             };

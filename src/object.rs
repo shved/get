@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use sha1_smol::Sha1;
 
@@ -9,7 +9,7 @@ pub(crate) enum Object {
     Commit {
         path: PathBuf,
         parent_commit_digest: String,
-        content: String,
+        content: Vec<String>,
         commit_msg: String,
         digest: String,
         author: String,
@@ -17,7 +17,7 @@ pub(crate) enum Object {
     },
     Tree {
         path: PathBuf,
-        content: String,
+        content: Vec<String>,
         digest: String,
     },
     Blob {
@@ -39,8 +39,36 @@ impl Object {
     // blob object, and formatted list of children objects
     pub fn update_digest(&mut self) {
         match self {
-            // Self::Commit { path, .. } => _,
-            // Self::Tree { path, .. } => path.as_ref(),
+            Self::Commit {
+                content,
+                ref mut digest,
+                parent_commit_digest,
+                author,
+                commit_msg,
+                timestamp,
+                ..
+            } => {
+                let unix_time = timestamp.duration_since(UNIX_EPOCH).unwrap();
+                let mut hasher = Sha1::new();
+                hasher.update(content[0].as_bytes());
+                hasher.update(parent_commit_digest.as_bytes());
+                hasher.update(author.as_bytes());
+                hasher.update(format!("{}", unix_time.as_millis()).as_bytes());
+                hasher.update(commit_msg.as_bytes());
+                *digest = hasher.digest().to_string();
+            }
+            Self::Tree {
+                ref mut content,
+                ref mut digest,
+                ..
+            } => {
+                let mut hasher = Sha1::new();
+                content.sort(); // We sort beacuaseo of possible difference in dir listing on different platforms.
+                for line in content {
+                    hasher.update(line.as_bytes());
+                }
+                *digest = hasher.digest().to_string();
+            }
             Self::Blob {
                 path,
                 ref mut digest,
@@ -51,7 +79,6 @@ impl Object {
                 hasher.update(content.as_bytes());
                 *digest = hasher.digest().to_string();
             }
-            _ => panic!(),
         }
     }
 
@@ -59,20 +86,14 @@ impl Object {
     // object type, content digest and filename and concatenates this string to an object content.
     // The string will be used to calculate a parent digest. Function adds line break to the given
     // string.
-    pub fn append_content(&mut self, obj_str: &str) {
+    pub fn append_content(&mut self, obj_str: String) {
         match self {
             Self::Commit {
                 ref mut content, ..
-            } => {
-                content.push_str(obj_str);
-                content.push_str("\n");
-            }
+            } => content.push(obj_str),
             Self::Tree {
                 ref mut content, ..
-            } => {
-                content.push_str(obj_str);
-                content.push_str("\n");
-            }
+            } => content.push(obj_str),
             Self::Blob { .. } => (), // For blob a content is what file contains.
         }
     }
