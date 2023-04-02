@@ -52,10 +52,24 @@ impl Worktree {
 
         wt
     }
+
+    // fn persist_commit(&self) -> &str {
+    //     persist_all_children(&self, 0);
+    // self.0[0].obj.digest.as_str()
+    // }
 }
 
-fn build_tree(wt: &mut Worktree, cur_i: NodeId, ignore: &[&str]) {
-    for entry in fs::read_dir(wt.0[cur_i].obj.path())
+pub(crate) fn commit(cur_path: PathBuf, message: &str, ignore: &[&str], timestamp: SystemTime) {
+    dbg!(Worktree::from_files(cur_path, message, ignore, timestamp));
+    // let wt = Worktree::from_files(cur_path, message, ignore, timestamp);
+    // wt.persist_commit();
+    // TODO update_head();
+}
+
+fn build_tree(wt: &mut Worktree, current: NodeId, ignore: &[&str]) {
+    let mut new_cur: usize = Default::default();
+
+    for entry in fs::read_dir(wt.0[current].obj.path())
         .expect("get: can't read dir")
         .filter(|e| !is_ignored(e.as_ref().unwrap().path(), ignore))
     {
@@ -68,33 +82,23 @@ fn build_tree(wt: &mut Worktree, cur_i: NodeId, ignore: &[&str]) {
                 digest: String::default(),
             };
 
-            // Append a parent object content so that it will be used to calculate parents digest.
-            wt.0[cur_i].obj.append_content(tree.obj_content_line());
-
             let node = Node {
                 children: Vec::new(),
                 obj: tree,
             };
 
             wt.0.push(node); // Put new node in arena vector.
-            let new_cur = wt.0.len() - 1;
+            new_cur = wt.0.len() - 1;
 
-            wt.0[cur_i].children.push(new_cur); // Update parent's children with new node.
+            wt.0[current].children.push(new_cur); // Update parent's children with new node.
 
             build_tree(wt, new_cur, ignore);
-
-            wt.0[cur_i].obj.update_digest();
         } else if ftype.is_file() {
-            let mut blob = Object::Blob {
+            let blob = Object::Blob {
                 path: e.path(),
+                content: String::default(),
                 digest: String::default(),
             };
-
-            // Calculate and update digest of a blob object.
-            blob.update_digest();
-
-            // Append a parent object content so that it will be used to calculate parents digest.
-            wt.0[cur_i].obj.append_content(blob.obj_content_line());
 
             let node = Node {
                 children: Vec::new(),
@@ -102,17 +106,30 @@ fn build_tree(wt: &mut Worktree, cur_i: NodeId, ignore: &[&str]) {
             };
 
             wt.0.push(node); // Put new node in arena vector.
-            let new_cur = wt.0.len() - 1;
+            new_cur = wt.0.len() - 1;
 
-            wt.0[cur_i].children.push(new_cur); // Update parent's children with new node.
+            wt.0[current].children.push(new_cur); // Update parent's children with new node.
+                                                  //
+            wt.0[new_cur].obj.update_digest();
         } else if ftype.is_symlink() {
             unimplemented!("get: we don't deal with symlinks here, please use real CVS like git")
         }
+
+        // Append a parent object content with new child.
+        let content_line = wt.0[new_cur].obj.obj_content_line();
+        wt.0[current].obj.append_content(content_line);
+
+        // Update current node digest.
+        wt.0[current].obj.update_digest();
     }
 }
 
-pub(crate) fn commit(cur_path: PathBuf, message: &str, ignore: &[&str], timestamp: SystemTime) {
-    dbg!(Worktree::from_files(cur_path, message, ignore, timestamp));
+fn persist_all_children(wt: &Worktree, cursor: usize) {
+    wt.0[cursor].obj.persist_object();
+
+    for index in wt.0[cursor].children.as_slice() {
+        persist_all_children(wt, *index);
+    }
 }
 
 fn is_ignored(e: PathBuf, ignored: &[&str]) -> bool {
@@ -133,7 +150,15 @@ fn is_ignored(e: PathBuf, ignored: &[&str]) -> bool {
 
 fn read_head(repo_root: &Path) -> String {
     fs::read_to_string(repo_root.join(super::REPO_DIR).join(super::HEAD_FILE))
-        .expect("get: cant read HEAD")
+        .expect("get: can't read HEAD")
         .trim()
         .into()
+}
+
+fn write_head(repo_root: &Path, digest: &str) {
+    fs::write(
+        repo_root.join(super::REPO_DIR).join(super::HEAD_FILE),
+        digest,
+    )
+    .expect("get: can't write HEAD");
 }

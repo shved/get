@@ -22,6 +22,7 @@ pub(crate) enum Object {
     },
     Blob {
         path: PathBuf,
+        content: String,
         digest: String,
     },
 }
@@ -41,7 +42,7 @@ impl Object {
         match self {
             Self::Commit {
                 content,
-                ref mut digest,
+                digest,
                 parent_commit_digest,
                 author,
                 commit_msg,
@@ -50,7 +51,10 @@ impl Object {
             } => {
                 let unix_time = timestamp.duration_since(UNIX_EPOCH).unwrap();
                 let mut hasher = Sha1::new();
-                hasher.update(content[0].as_bytes());
+                content.sort(); // We sort because of possible difference in dir listing on different platforms.
+                for line in content {
+                    hasher.update(line.as_bytes());
+                }
                 hasher.update(parent_commit_digest.as_bytes());
                 hasher.update(author.as_bytes());
                 hasher.update(format!("{}", unix_time.as_millis()).as_bytes());
@@ -58,12 +62,10 @@ impl Object {
                 *digest = hasher.digest().to_string();
             }
             Self::Tree {
-                ref mut content,
-                ref mut digest,
-                ..
+                content, digest, ..
             } => {
                 let mut hasher = Sha1::new();
-                content.sort(); // We sort beacuaseo of possible difference in dir listing on different platforms.
+                content.sort(); // We sort because of possible difference in dir listing on different platforms.
                 for line in content {
                     hasher.update(line.as_bytes());
                 }
@@ -71,12 +73,14 @@ impl Object {
             }
             Self::Blob {
                 path,
-                ref mut digest,
+                digest,
+                content,
                 ..
             } => {
-                let content = fs::read_to_string(path.as_path()).unwrap();
+                let file_content = fs::read_to_string(path.as_path()).unwrap();
                 let mut hasher = Sha1::new();
-                hasher.update(content.as_bytes());
+                hasher.update(file_content.as_bytes());
+                *content = file_content;
                 *digest = hasher.digest().to_string();
             }
         }
@@ -104,17 +108,31 @@ impl Object {
         match self {
             Self::Commit { .. } => String::new(), // Commit can't be representet as an obj string.
             Self::Tree { path, digest, .. } => format!(
-                "{}\t{}\t{}",
+                "{}\t{}\t{}\n",
                 super::TREE_DIR,
                 digest.as_str(),
                 path.file_name().unwrap().to_str().unwrap(),
             ),
             Self::Blob { path, digest, .. } => format!(
-                "{}\t{}\t{}",
+                "{}\t{}\t{}\n",
                 super::BLOB_DIR,
                 digest.as_str(),
                 path.file_name().unwrap().to_str().unwrap(),
             ),
         }
     }
+
+    pub fn persist_object(&self) {
+        match self {
+            Self::Commit { .. } => (),
+            Self::Tree { .. } => (),
+            Self::Blob { .. } => (),
+        }
+    }
+
+    pub fn persist_source_file(&self) {
+        unimplemented!();
+    }
 }
+
+// fn write_gzip(path: &Path, data: String, digest

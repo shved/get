@@ -1,10 +1,11 @@
 - [X] init
 - [X] refactor it to split bin command and lib implementation
 - [ ] commit
-- [ ] may be refactor it to read all the file tree in memory once and then operate with it in memory
-- [ ] guard repo with lock of filesystem node while doing job
+- [ ] start doing real unit and integration tests ^_^
 - [ ] refactor it to use std::fs::DirBuilder in init
 - [ ] refactor it to use declarative clap style
+- [ ] may be refactor it to read all the file tree in memory once and then operate with it in memory
+- [ ] guard repo with lock of filesystem node while doing job???
 - [ ] restore
 - [ ] refactor error handling so every call returns result to the top level and panics are handled with proper exit code in main.rs
 - [ ] fight unwraps
@@ -14,6 +15,7 @@
 - [ ] branches
 - [ ] log
 - [ ] make it work from any place, not just repo root directory (using Path.ancestors)
-- [ ] push/pull?
+- [ ] support diffs
+- [ ] push/pull via ssh + conflicts detection
 - [ ] handle interrupt signal trying to clean up after the current job is interrupted
 - [ ] test for: access writes issues, empty dirs, ...

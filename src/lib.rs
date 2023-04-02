@@ -26,9 +26,8 @@ const IGNORE: &[&str] = &[
 pub fn init(cur_path: &mut PathBuf) {
     cur_path.push(REPO_DIR);
 
-    let repo_initialized = cur_path.as_path().is_dir();
-    if repo_initialized {
-        panic!("Repo already exist.")
+    if cur_path.as_path().is_dir() {
+        panic!("get: repo already exist")
     }
 
     create_dirs(cur_path);
@@ -38,13 +37,24 @@ pub fn init(cur_path: &mut PathBuf) {
     println!("Repo in `{}` created!", cur_path.display());
 }
 
+pub fn commit(cur_path: PathBuf, msg: Option<&str>) {
+    if !cur_path.join(REPO_DIR).as_path().is_dir() {
+        panic!("get: there is no repo in this directory, try to initialize it first")
+    }
+
+    // TODO Change default message to smthg more informative.
+    let message = msg.unwrap_or("default commit message");
+
+    worktree::commit(cur_path, message, IGNORE, SystemTime::now());
+}
+
 // TODO Unit test this (tree and permissions).
 // TODO Remake to use std::fs::DirBuilder.
 fn create_dirs(cur_path: &mut PathBuf) {
     // Crete `.get`.
-    fs::create_dir(cur_path.as_path()).expect("Unable to create repo directory.");
+    fs::create_dir(cur_path.as_path()).expect("get: can't create repo directory");
     fs::set_permissions(cur_path.as_path(), fs::Permissions::from_mode(0o755))
-        .expect("Unable to set proper file ext permissions");
+        .expect("get: can't set proper file ext permissions");
 
     // Crete `.get/objects`.
     create_dir(cur_path, OBJECTS_DIR);
@@ -59,29 +69,22 @@ fn create_dirs(cur_path: &mut PathBuf) {
 
 fn create_dir(cur_path: &mut PathBuf, name: &str) {
     cur_path.push(name);
-    fs::create_dir(cur_path.as_path()).expect("Unable to create commit directory.");
+    fs::create_dir(cur_path.as_path()).expect("get: can't create commit directory.");
     fs::set_permissions(cur_path.as_path(), fs::Permissions::from_mode(0o755))
-        .expect("Unable to set proper file ext permissions");
+        .expect("get: can't set proper file ext permissions");
     cur_path.pop();
 }
 
 fn create_files(cur_path: &mut PathBuf) {
     cur_path.push(HEAD_FILE);
-    fs::write(cur_path.as_path(), EMPTY_REF).expect("Unable to write head");
+    fs::write(cur_path.as_path(), EMPTY_REF).expect("get: can't write head");
     fs::set_permissions(cur_path.as_path(), fs::Permissions::from_mode(0o644))
-        .expect("Unable to set proper file ext permissions");
+        .expect("get: can't set proper file ext permissions");
     cur_path.pop();
 
     cur_path.push(LOG_FILE);
     fs::File::create(cur_path.as_path()).expect("Unable to create LOG file");
     fs::set_permissions(cur_path.as_path(), fs::Permissions::from_mode(0o644))
-        .expect("Unable to set proper file ext permissions");
+        .expect("get: can't set proper file ext permissions");
     cur_path.pop();
-}
-
-pub fn commit(cur_path: PathBuf, msg: Option<&str>) {
-    // TODO Change default message to smthg more sensible.
-    let message = msg.unwrap_or("default commit message");
-
-    worktree::commit(cur_path, message, IGNORE, SystemTime::now());
 }
