@@ -1,15 +1,15 @@
 - [X] init
 - [X] refactor it to split bin command and lib implementation
-- [ ] commit
-- [ ] start doing real unit and integration tests ^_^
+- [X] commit
+- [ ] start doing real unit and integration tests ^_^ (doctests, unit in lib, integration in /tests directory)
+- [ ] refactor error handling so every call to lib returns result to the top level and panics are handled with proper exit code in main.rs and all the success messages are printed by main.rs. fight unwraps
 - [ ] refactor it to use std::fs::DirBuilder in init
 - [ ] refactor it to use declarative clap style
 - [ ] may be refactor it to read all the file tree in memory once and then operate with it in memory
 - [ ] guard repo with lock of filesystem node while doing job???
 - [ ] restore
-- [ ] refactor error handling so every call returns result to the top level and panics are handled with proper exit code in main.rs
-- [ ] fight unwraps
 - [ ] add support of getignore file (or even better just single .get.toml file with all the repo preferences and store options in static segment)
+- [ ] add static repo root path along with options so that it could be used throughout the program
 - [ ] delete last commit
 - [ ] diff
 - [ ] branches
@@ -18,4 +18,4 @@
 - [ ] support diffs
 - [ ] push/pull via ssh + conflicts detection
 - [ ] handle interrupt signal trying to clean up after the current job is interrupted
-- [ ] test for: access writes issues, empty dirs, ...
+- [ ] command to delete dangling objects (gc)

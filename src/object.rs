@@ -1,7 +1,10 @@
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use flate2::write::ZlibEncoder;
+use flate2::Compression;
 use sha1_smol::Sha1;
 
 #[derive(Debug)]
@@ -36,29 +39,42 @@ impl Object {
         }
     }
 
+    pub fn digest(&self) -> &str {
+        match self {
+            Self::Commit { digest, .. } => digest.as_str(),
+            Self::Tree { digest, .. } => digest.as_str(),
+            Self::Blob { digest, .. } => digest.as_str(),
+        }
+    }
+
     // Calculates digest string for a content of a given object type. Which is a file content for
-    // blob object, and formatted list of children objects
+    // blob object, and formatted list of children objects for commit and tree node. It also sorts
+    // objects content. Once digest is calculated content should'nt be altered.
     pub fn update_digest(&mut self) {
         match self {
             Self::Commit {
                 content,
-                digest,
                 parent_commit_digest,
                 author,
-                commit_msg,
                 timestamp,
+                commit_msg,
+                digest,
                 ..
             } => {
                 let unix_time = timestamp.duration_since(UNIX_EPOCH).unwrap();
                 let mut hasher = Sha1::new();
-                content.sort(); // We sort because of possible difference in dir listing on different platforms.
+                // We sort because of possible difference in dir listing on different platforms.
+                content.sort();
+                // And then append all the other data valuable for commit.
+                content.push(format!("{}\n", parent_commit_digest));
+                content.push(format!("{}\n", author));
+                content.push(format!("{}\n", unix_time.as_millis()));
+                content.push(format!("{}\n", commit_msg));
+
                 for line in content {
                     hasher.update(line.as_bytes());
                 }
-                hasher.update(parent_commit_digest.as_bytes());
-                hasher.update(author.as_bytes());
-                hasher.update(format!("{}", unix_time.as_millis()).as_bytes());
-                hasher.update(commit_msg.as_bytes());
+
                 *digest = hasher.digest().to_string();
             }
             Self::Tree {
@@ -122,11 +138,55 @@ impl Object {
         }
     }
 
-    pub fn persist_object(&self) {
+    pub fn persist_object(&self, repo_root: &Path) {
+        let mut zipper = ZlibEncoder::new(Vec::new(), Compression::default());
+
         match self {
-            Self::Commit { .. } => (),
-            Self::Tree { .. } => (),
-            Self::Blob { .. } => (),
+            Self::Commit {
+                content, digest, ..
+            } => {
+                zipper.write_all(content.join("").as_bytes()).unwrap();
+                let compressed_bytes = zipper.finish().unwrap();
+                write_gzip(
+                    repo_root
+                        .join(super::REPO_DIR)
+                        .join(super::OBJECTS_DIR)
+                        .join(super::COMMITS_DIR)
+                        .as_path(), // TODO Do something with this crap.
+                    digest,
+                    compressed_bytes.as_ref(),
+                )
+            }
+            Self::Tree {
+                content, digest, ..
+            } => {
+                zipper.write_all(content.join("").as_bytes()).unwrap();
+                let compressed_bytes = zipper.finish().unwrap();
+                write_gzip(
+                    repo_root
+                        .join(super::REPO_DIR)
+                        .join(super::OBJECTS_DIR)
+                        .join(super::TREE_DIR)
+                        .as_path(), // TODO Do something with this crap.
+                    digest,
+                    compressed_bytes.as_ref(),
+                )
+            }
+            Self::Blob {
+                content, digest, ..
+            } => {
+                zipper.write_all(content.as_bytes()).unwrap();
+                let compressed_bytes = zipper.finish().unwrap();
+                write_gzip(
+                    repo_root
+                        .join(super::REPO_DIR)
+                        .join(super::OBJECTS_DIR)
+                        .join(super::BLOB_DIR)
+                        .as_path(), // TODO Do something with this crap.
+                    digest,
+                    compressed_bytes.as_ref(),
+                )
+            }
         }
     }
 
@@ -135,4 +195,10 @@ impl Object {
     }
 }
 
-// fn write_gzip(path: &Path, data: String, digest
+fn write_gzip(path: &Path, digest: &String, data: &[u8]) {
+    // I don't mind it will be false in case of permissions error. We are not doing rock solid
+    // software here.
+    if !path.join(digest).exists() {
+        fs::write(path.join(digest).as_path(), data).expect("get: error writing an object");
+    }
+}

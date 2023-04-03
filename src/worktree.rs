@@ -53,17 +53,19 @@ impl Worktree {
         wt
     }
 
-    // fn persist_commit(&self) -> &str {
-    //     persist_all_children(&self, 0);
-    // self.0[0].obj.digest.as_str()
-    // }
+    fn persist_commit(&self) -> &str {
+        let root_path = self.0[0].obj.path();
+        persist_all_children(root_path, &self, 0);
+        self.0[0].obj.digest()
+    }
 }
 
-pub(crate) fn commit(cur_path: PathBuf, message: &str, ignore: &[&str], timestamp: SystemTime) {
-    dbg!(Worktree::from_files(cur_path, message, ignore, timestamp));
-    // let wt = Worktree::from_files(cur_path, message, ignore, timestamp);
-    // wt.persist_commit();
-    // TODO update_head();
+pub(crate) fn commit(root_path: PathBuf, message: &str, ignore: &[&str], timestamp: SystemTime) {
+    // dbg!(Worktree::from_files(cur_path, message, ignore, timestamp)); TODO Delete.
+    let wt = Worktree::from_files(root_path.clone(), message, ignore, timestamp);
+    let commit_digest = wt.persist_commit();
+    write_head(root_path.as_path(), commit_digest);
+    println!("Commit {} saved successfully.", commit_digest)
 }
 
 fn build_tree(wt: &mut Worktree, current: NodeId, ignore: &[&str]) {
@@ -124,11 +126,11 @@ fn build_tree(wt: &mut Worktree, current: NodeId, ignore: &[&str]) {
     }
 }
 
-fn persist_all_children(wt: &Worktree, cursor: usize) {
-    wt.0[cursor].obj.persist_object();
+fn persist_all_children(root_path: &Path, wt: &Worktree, cursor: usize) {
+    wt.0[cursor].obj.persist_object(root_path);
 
-    for index in wt.0[cursor].children.as_slice() {
-        persist_all_children(wt, *index);
+    for i in wt.0[cursor].children.as_slice() {
+        persist_all_children(root_path, wt, *i);
     }
 }
 

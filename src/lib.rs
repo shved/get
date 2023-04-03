@@ -37,15 +37,15 @@ pub fn init(cur_path: &mut PathBuf) {
     println!("Repo in `{}` created!", cur_path.display());
 }
 
-pub fn commit(cur_path: PathBuf, msg: Option<&str>) {
-    if !cur_path.join(REPO_DIR).as_path().is_dir() {
+pub fn commit(root_path: PathBuf, msg: Option<&str>) {
+    if !root_path.join(REPO_DIR).as_path().is_dir() {
         panic!("get: there is no repo in this directory, try to initialize it first")
     }
 
     // TODO Change default message to smthg more informative.
     let message = msg.unwrap_or("default commit message");
 
-    worktree::commit(cur_path, message, IGNORE, SystemTime::now());
+    worktree::commit(root_path, message, IGNORE, SystemTime::now());
 }
 
 // TODO Unit test this (tree and permissions).
