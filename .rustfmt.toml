@@ -1,1 +1,3 @@
-group_imports = "StdExternalCrate"
+edition = "2021"
+group_imports = "StdExternalCrate" # Apparently doesn't work.
+imports_granularity = "Crate"

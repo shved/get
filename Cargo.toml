@@ -7,8 +7,11 @@ edition = "2021"
 
 [dependencies]
 clap = "4.1.11"
+env_logger = "0.10.0"
 flate2 = "1.0.25"
+log = "0.4.17"
 sha1 = "0.10.5"
 sha1_smol = "1.0.0"
+thiserror = "1.0.40"
 users = "0.11.0"
 walkdir = "2.3.3"

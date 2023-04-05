@@ -1,12 +1,12 @@
 - [X] init
 - [X] refactor it to split bin command and lib implementation
 - [X] commit
+- [X] refactor error handling so every call to lib returns result to the top level and panics are handled with proper exit code in main.rs and all the success messages are printed by main.rs. fight unwraps
 - [ ] start doing real unit and integration tests ^_^ (doctests, unit in lib, integration in /tests directory)
-- [ ] refactor error handling so every call to lib returns result to the top level and panics are handled with proper exit code in main.rs and all the success messages are printed by main.rs. fight unwraps
 - [ ] refactor it to use std::fs::DirBuilder in init
 - [ ] refactor it to use declarative clap style
 - [ ] may be refactor it to read all the file tree in memory once and then operate with it in memory
-- [ ] guard repo with lock of filesystem node while doing job???
+- [ ] guard repo with lock of filesystem node while doing job??? maybe use a .lock files for all the changes
 - [ ] restore
 - [ ] add support of getignore file (or even better just single .get.toml file with all the repo preferences and store options in static segment)
 - [ ] add static repo root path along with options so that it could be used throughout the program
