@@ -3,7 +3,6 @@ use crate::error::Error;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
 
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
@@ -13,15 +12,11 @@ use sha1_smol::Sha1;
 pub(crate) enum Object {
     Commit {
         path: PathBuf,
-        parent_commit_digest: String,
         // Repo root content to save and calculate digest.
         content: Vec<String>,
         // Additional properties for a commit to save and calculate digest.
         properties: Vec<String>,
-        commit_msg: String,
         digest: String,
-        author: String,
-        timestamp: SystemTime,
     },
     Tree {
         path: PathBuf,

@@ -47,18 +47,14 @@ impl Worktree {
 
         let commit = Object::Commit {
             path: p,
-            parent_commit_digest: parent_commit_digest.clone(),
             content: Vec::new(),
             properties: vec![
                 parent_commit_digest,
-                author.clone(),
+                author,
                 unix_time.as_millis().to_string(),
                 message.to_string(),
             ],
             digest: String::default(),
-            commit_msg: message.to_string(),
-            author,
-            timestamp,
         };
 
         let node = Node {
@@ -108,8 +104,13 @@ fn build_tree(wt: &mut Worktree, current: NodeId, ignore: &[&str]) -> Result<(),
     let mut new_cur: usize = Default::default();
 
     let entries = fs::read_dir(wt.0[current].obj.path())?;
-    for entry in entries.filter(|e| !is_ignored(e.as_ref().unwrap().path(), ignore).unwrap()) {
+    for entry in entries {
         let e = entry?;
+
+        if is_ignored(e.path(), ignore)? {
+            continue;
+        }
+
         let ftype = e.file_type()?;
         if ftype.is_dir() {
             let tree = Object::Tree {
@@ -189,7 +190,7 @@ fn is_ignored(path: PathBuf, ignored: &[&str]) -> Result<bool, Error> {
     Ok(false)
 }
 
-fn read_head(repo_root: &Path) -> Result<String, crate::error::Error> {
+fn read_head(repo_root: &Path) -> Result<String, Error> {
     let str = fs::read_to_string(repo_root.join(super::REPO_DIR).join(super::HEAD_FILE))?;
 
     Ok(str)

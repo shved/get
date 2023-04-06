@@ -1,3 +1,5 @@
+use get::error::Error;
+
 use clap::{arg, Command};
 use std::env;
 use std::process::exit;
@@ -22,7 +24,10 @@ fn main() {
         )
         .get_matches();
 
-    let mut root_path = env::current_dir().expect("get: can't get current dir path");
+    let mut root_path = env::current_dir().unwrap_or_else(|e| {
+        error!("{}", Error::IoError(e));
+        exit(1);
+    });
 
     match matches.subcommand() {
         Some(("init", _)) => match get::init(&mut root_path) {
