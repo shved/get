@@ -10,6 +10,7 @@
 - [ ] restore
 - [ ] add support of getignore file (or even better just single .get.toml file with all the repo preferences and store options in static segment)
 - [ ] add static repo root path along with options so that it could be used throughout the program
+- [ ] remake blob content to be a byte slice to support arbitrary binary data, not just utf-8 text files.
 - [ ] delete last commit
 - [ ] diff
 - [ ] branches
