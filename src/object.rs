@@ -217,7 +217,7 @@ fn write_gzip(path: &Path, digest: &String, data: &[u8]) -> Result<(), Error> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::Object;
     use std::path::PathBuf;
 

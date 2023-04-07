@@ -1,9 +1,10 @@
 use get::error::Error;
 
-use clap::{arg, Command};
 use std::env;
 use std::process::exit;
+use std::time::SystemTime;
 
+use clap::{arg, Command};
 use log::{error, info};
 
 fn main() {
@@ -41,7 +42,8 @@ fn main() {
         },
         Some(("commit", sub_matches)) => {
             let msg = sub_matches.get_one::<String>("message");
-            match get::commit(root_path, msg.map(|s| s.as_str())) {
+            let sys_time = SystemTime::now();
+            match get::commit(root_path, msg.map(|s| s.as_str()), sys_time) {
                 Ok(commit_digest) => {
                     info!("Commit {} saved successfully.", commit_digest)
                 }

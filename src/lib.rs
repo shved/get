@@ -40,10 +40,12 @@ pub fn init(cur_path: &mut PathBuf) -> Result<(), Error> {
 
     create_files(cur_path)?;
 
+    cur_path.pop();
+
     Ok(())
 }
 
-pub fn commit(root_path: PathBuf, msg: Option<&str>) -> Result<String, Error> {
+pub fn commit(root_path: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<String, Error> {
     if !root_path.join(REPO_DIR).as_path().is_dir() {
         return Err(Error::RepoAlreadyExist);
     }
@@ -51,10 +53,9 @@ pub fn commit(root_path: PathBuf, msg: Option<&str>) -> Result<String, Error> {
     // TODO Change default message to smthg more informative.
     let message = msg.unwrap_or("default commit message");
 
-    worktree::commit(root_path, message, IGNORE, SystemTime::now())
+    worktree::commit(root_path, message, IGNORE, now)
 }
 
-// TODO Remake to use std::fs::DirBuilder.
 fn create_dirs(cur_path: &mut PathBuf) -> Result<(), Error> {
     // Crete `.get`.
     fs::create_dir(cur_path.as_path())?;
