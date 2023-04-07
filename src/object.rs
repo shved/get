@@ -119,12 +119,12 @@ impl Object {
                     .ok_or(Error::Unexpected)?
                     .to_str()
                     .ok_or(Error::Unexpected)?;
-                return Ok(format!(
+                Ok(format!(
                     "{}\t{}\t{}\n",
                     super::TREE_DIR,
                     digest.as_str(),
                     file_name
-                ));
+                ))
             }
             Self::Blob { path, digest, .. } => {
                 let file_name = path
@@ -132,12 +132,12 @@ impl Object {
                     .ok_or(Error::Unexpected)?
                     .to_str()
                     .ok_or(Error::Unexpected)?;
-                return Ok(format!(
+                Ok(format!(
                     "{}\t{}\t{}\n",
                     super::BLOB_DIR,
                     digest.as_str(),
                     file_name,
-                ));
+                ))
             }
         }
     }

@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use log::warn;
-use users;
+use users::get_current_username;
 
 type NodeId = usize;
 
@@ -37,7 +37,7 @@ impl Worktree {
             .map_err(|_| Error::Unexpected)?;
 
         // TODO Try to use .get.toml config and use current user id as a fallback.
-        let author = users::get_current_username()
+        let author = get_current_username()
             .unwrap_or_else(|| {
                 warn!("couldn't fetch user name, default user name used instead");
                 OsString::from("unknown author")
@@ -74,7 +74,7 @@ impl Worktree {
     fn persist_commit(&self) -> Result<&str, Error> {
         let root_path = self.0[0].obj.path();
 
-        save_all_children(root_path, &self, 0)?;
+        save_all_children(root_path, self, 0)?;
 
         Ok(self.0[0].obj.digest())
     }

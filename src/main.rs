@@ -7,7 +7,7 @@ use std::process::exit;
 use log::{error, info};
 
 fn main() {
-    let _ = env_logger::builder()
+    env_logger::builder()
         .filter_level(log::LevelFilter::max())
         .init();
 
