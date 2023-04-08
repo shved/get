@@ -29,9 +29,9 @@ impl Worktree {
         parent_commit_digest: String,
         message: &str,
         ignore: &[&str],
-        timestamp: SystemTime,
+        now: SystemTime,
     ) -> Result<Worktree, Error> {
-        let unix_time = timestamp
+        let timestamp = now
             .duration_since(UNIX_EPOCH)
             .map_err(|_| Error::Unexpected)?;
 
@@ -50,9 +50,11 @@ impl Worktree {
             properties: vec![
                 parent_commit_digest,
                 author,
-                unix_time.as_millis().to_string(),
+                timestamp.as_secs().to_string(),
                 message.to_string(),
             ],
+            message: message.to_string(),
+            timestamp,
             digest: String::default(),
         };
 

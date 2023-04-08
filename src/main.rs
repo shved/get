@@ -59,7 +59,7 @@ fn main() {
             }
         }
         Some(("restore", sub_matches)) => {
-            // We unwrap here safely since digest is required by clap.
+            // We unwrap here safely since digest is explicitly required by clap.
             let digest = sub_matches.get_one::<String>("digest").unwrap();
             match get::restore(root_path, digest.as_str()) {
                 Ok(_) => {

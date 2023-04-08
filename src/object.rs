@@ -1,11 +1,13 @@
 use crate::error::Error;
 
 use std::fs;
+use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-use flate2::write::ZlibEncoder;
 use flate2::Compression;
+use flate2::GzBuilder;
 use sha1_smol::Sha1;
 
 #[derive(Debug)]
@@ -16,6 +18,8 @@ pub(crate) enum Object {
         content: Vec<String>,
         // Additional properties for a commit to save and calculate digest.
         properties: Vec<String>,
+        message: String,
+        timestamp: Duration,
         digest: String,
     },
     Tree {
@@ -81,10 +85,16 @@ impl Object {
                 }
                 *digest = hasher.digest().to_string();
             }
-            Self::Blob { path, digest, .. } => {
+            Self::Blob {
+                path,
+                content,
+                digest,
+                ..
+            } => {
                 let file_content = fs::read_to_string(path.as_path())?;
                 let mut hasher = Sha1::new();
                 hasher.update(file_content.as_bytes());
+                *content = file_content;
                 *digest = hasher.digest().to_string();
             }
         }
@@ -143,57 +153,69 @@ impl Object {
     }
 
     pub(crate) fn save_object(&self, repo_root: &Path) -> Result<(), Error> {
-        let mut zipper = ZlibEncoder::new(Vec::new(), Compression::default());
-
         match self {
             Self::Commit {
                 content,
                 properties,
+                message,
+                timestamp,
                 digest,
                 ..
             } => {
+                let save_path = repo_root // TODO Do something with this crap.
+                    .join(super::REPO_DIR)
+                    .join(super::OBJECTS_DIR)
+                    .join(super::COMMITS_DIR)
+                    .join(digest);
+                let f = File::create(save_path)?;
+
+                let mut zipper = GzBuilder::new()
+                    .filename(digest.as_bytes())
+                    .comment(message.as_bytes())
+                    .extra(timestamp.as_secs().to_string().as_bytes())
+                    .write(f, Compression::default());
+
                 zipper.write_all(content.join("").as_bytes())?;
                 zipper.write_all(properties.join("").as_bytes())?;
-                let compressed_bytes = zipper.finish()?;
-                write_gzip(
-                    repo_root // TODO Do something with this crap.
-                        .join(super::REPO_DIR)
-                        .join(super::OBJECTS_DIR)
-                        .join(super::COMMITS_DIR)
-                        .as_path(),
-                    digest,
-                    compressed_bytes.as_ref(),
-                )?;
+                zipper.finish()?;
             }
             Self::Tree {
                 content, digest, ..
             } => {
+                let save_path = repo_root // TODO Do something with this crap.
+                    .join(super::REPO_DIR)
+                    .join(super::OBJECTS_DIR)
+                    .join(super::TREE_DIR)
+                    .join(digest);
+                let f = File::create(save_path)?;
+
+                let mut zipper = GzBuilder::new()
+                    .filename(digest.as_bytes())
+                    // TODO save dir timestamp to restore it as well
+                    // .extra(timestamp.as_secs().into())
+                    .write(f, Compression::default());
+
                 zipper.write_all(content.join("").as_bytes())?;
-                let compressed_bytes = zipper.finish()?;
-                write_gzip(
-                    repo_root // TODO Do something with this crap.
-                        .join(super::REPO_DIR)
-                        .join(super::OBJECTS_DIR)
-                        .join(super::TREE_DIR)
-                        .as_path(),
-                    digest,
-                    compressed_bytes.as_ref(),
-                )?;
+                zipper.finish()?;
             }
             Self::Blob {
                 content, digest, ..
             } => {
+                let save_path = repo_root // TODO Do something with this crap.
+                    .join(super::REPO_DIR)
+                    .join(super::OBJECTS_DIR)
+                    .join(super::BLOB_DIR)
+                    .join(digest);
+                let f = File::create(save_path)?;
+
+                let mut zipper = GzBuilder::new()
+                    .filename(digest.as_bytes())
+                    // TODO save file timestamp to restore it as well
+                    // .extra(timestamp.as_secs().into())
+                    .write(f, Compression::default());
+
                 zipper.write_all(content.as_bytes())?;
-                let compressed_bytes = zipper.finish()?;
-                write_gzip(
-                    repo_root // TODO Do something with this crap.
-                        .join(super::REPO_DIR)
-                        .join(super::OBJECTS_DIR)
-                        .join(super::BLOB_DIR)
-                        .as_path(),
-                    digest,
-                    compressed_bytes.as_ref(),
-                )?;
+                zipper.finish()?;
             }
         }
 
@@ -206,28 +228,20 @@ impl Object {
     }
 }
 
-fn write_gzip(path: &Path, digest: &String, data: &[u8]) -> Result<(), Error> {
-    // I don't mind it will be false in case of permissions error. We are not covering all the
-    // real world edge cases here.
-    if !path.join(digest).exists() {
-        fs::write(path.join(digest).as_path(), data)?;
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::Object;
     use std::path::PathBuf;
+    use std::time::Duration;
 
     #[test]
     fn update_digest_commit() {
+        let message = "descriptive commit message\nwith several\nlines.";
         let commit_properties = vec![
-            String::from("1234567890abcdefghij"),
-            String::from("rakhmaninov"),
-            String::from("1680873704237"),
-            String::from("descriptive commit message\nwith several\nlines."),
+            String::from("1234567890abcdefghij"), // digest
+            String::from("rakhmaninov"),          // author
+            String::from("1680961369"),           // timestamp
+            String::from(message),
         ];
 
         let mut commit = Object::Commit {
@@ -241,11 +255,13 @@ mod tests {
                 String::from("tree\t9dffa2d73d8b2f67a59768600023cd32b21ba7ac\tdummy_app\n"),
             ],
             properties: commit_properties.clone(),
+            message: String::from(message),
+            timestamp: Duration::new(1680961369, 0),
             digest: String::default(),
         };
 
         assert!(commit.update_digest().is_ok());
-        assert!(commit.digest() == "36c07fe4f2d7e8b84510ea9f189be3cc575ee977");
+        assert!(commit.digest() == "a0619e63ff785e9f1291228ea76b83a1c39090d6");
 
         let mut commit_with_content_reordered = Object::Commit {
             path: PathBuf::from("/tmp"),
@@ -258,6 +274,8 @@ mod tests {
                 String::from("tree\t9dffa2d73d8b2f67a59768600023cd32b21ba7ac\tdummy_app\n"),
             ],
             properties: commit_properties.clone(),
+            message: String::from(message),
+            timestamp: Duration::new(1680961369, 0),
             digest: String::default(),
         };
 
