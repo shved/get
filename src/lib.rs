@@ -5,7 +5,7 @@ mod worktree;
 use std::fs;
 use std::io;
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use crate::error::Error;
@@ -52,8 +52,23 @@ pub fn commit(root_path: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<
 
     // TODO Change default message to smthg more informative.
     let message = msg.unwrap_or("default commit message");
+    let parent_commit_digest = read_head(root_path.as_path())?;
 
-    worktree::commit(root_path, message, IGNORE, now)
+    let new_commit_digest = worktree::commit(
+        root_path.clone(),
+        parent_commit_digest,
+        message,
+        IGNORE,
+        now,
+    )?;
+
+    write_head(root_path.as_path(), new_commit_digest.as_str())?;
+
+    Ok(new_commit_digest)
+}
+
+pub fn restore(root_path: PathBuf, digest: &str) -> Result<(), Error> {
+    Ok(())
 }
 
 fn create_dirs(cur_path: &mut PathBuf) -> Result<(), Error> {
@@ -105,6 +120,18 @@ fn create_files(cur_path: &mut PathBuf) -> io::Result<()> {
         fs::Permissions::from_mode(DEFAULT_FILE_PERMISSIONS),
     )?;
     cur_path.pop();
+
+    Ok(())
+}
+
+fn read_head(repo_root: &Path) -> Result<String, Error> {
+    let str = fs::read_to_string(repo_root.join(REPO_DIR).join(HEAD_FILE))?;
+
+    Ok(str)
+}
+
+fn write_head(repo_root: &Path, digest: &str) -> Result<(), Error> {
+    fs::write(repo_root.join(REPO_DIR).join(HEAD_FILE), digest)?;
 
     Ok(())
 }

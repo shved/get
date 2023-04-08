@@ -23,6 +23,11 @@ fn main() {
                 .about("saves the changes")
                 .arg(arg!([message] "optional message")),
         )
+        .subcommand(
+            Command::new("restore")
+                .about("resotres saved files")
+                .arg(arg!([digest] "commit digest to restore").required(true)),
+        )
         .get_matches();
 
     let mut root_path = env::current_dir().unwrap_or_else(|e| {
@@ -45,7 +50,20 @@ fn main() {
             let sys_time = SystemTime::now();
             match get::commit(root_path, msg.map(|s| s.as_str()), sys_time) {
                 Ok(commit_digest) => {
-                    info!("Commit {} saved successfully.", commit_digest)
+                    info!("Commit {} saved successfully.", commit_digest);
+                }
+                Err(err) => {
+                    error!("{err}");
+                    exit(1);
+                }
+            }
+        }
+        Some(("restore", sub_matches)) => {
+            // We unwrap here safely since digest is required by clap.
+            let digest = sub_matches.get_one::<String>("digest").unwrap();
+            match get::restore(root_path, digest.as_str()) {
+                Ok(_) => {
+                    info!("Commit {} restored successfully.", digest);
                 }
                 Err(err) => {
                     error!("{err}");

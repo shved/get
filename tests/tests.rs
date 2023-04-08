@@ -1,9 +1,12 @@
 use std::fs;
+use std::fs::File;
 // use std::mem;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
 use tempdir::TempDir;
+
+const FIRST_COMMIT_DIGEST: &str = "69e63f5a1a4c2a0d4c26e69bdf5b054f110bbe72";
 
 #[test]
 fn repo_workflow() {
@@ -28,7 +31,11 @@ fn repo_workflow() {
     let first_commit_digest =
         get::commit(root_path.clone(), commit_message, SystemTime::UNIX_EPOCH);
     assert!(first_commit_digest.is_ok());
-    assert!(first_commit_digest.unwrap() == "cf3263f2d9106663efad5ccb6483dd73bbaf86d5");
+    assert_eq!(first_commit_digest.unwrap(), FIRST_COMMIT_DIGEST,);
+
+    let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
+    assert!(cur_head.is_ok());
+    assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST,);
 
     // Init again and fail.
     assert!(get::init(&mut root_path).is_err());
@@ -58,6 +65,13 @@ fn setup_project_dir(root_path: &mut PathBuf) {
 
     root_path.push("test_file4.txt");
     fs::write(root_path.as_path(), b"marga (path, Noble Eightfold Path) is the path leading to the confinement of tanha and dukkha.").unwrap();
+    root_path.pop();
+
+    root_path.push("empty_dir");
+    fs::create_dir(root_path.as_path()).unwrap();
+    root_path.push(".getkeep");
+    File::create(root_path.as_path()).unwrap();
+    root_path.pop();
     root_path.pop();
 
     root_path.pop();

@@ -26,12 +26,11 @@ struct Worktree(Vec<Node>);
 impl Worktree {
     fn from_files(
         p: PathBuf,
+        parent_commit_digest: String,
         message: &str,
         ignore: &[&str],
         timestamp: SystemTime,
     ) -> Result<Worktree, Error> {
-        let parent_commit_digest = read_head(p.as_path())?;
-
         let unix_time = timestamp
             .duration_since(UNIX_EPOCH)
             .map_err(|_| Error::Unexpected)?;
@@ -82,22 +81,13 @@ impl Worktree {
 
 pub(crate) fn commit(
     root_path: PathBuf,
+    parent_commit_digest: String,
     message: &str,
     ignore: &[&str],
     timestamp: SystemTime,
 ) -> Result<String, Error> {
-    let wt = dbg!(Worktree::from_files(
-        root_path.clone(),
-        message,
-        ignore,
-        timestamp
-    ))?;
-
-    let commit_digest = wt.persist_commit()?;
-
-    write_head(root_path.as_path(), commit_digest)?;
-
-    Ok(commit_digest.to_string())
+    let wt = Worktree::from_files(root_path, parent_commit_digest, message, ignore, timestamp)?;
+    wt.persist_commit().map(|s| s.to_string())
 }
 
 fn build_tree(wt: &mut Worktree, current: NodeId, ignore: &[&str]) -> Result<(), Error> {
@@ -188,19 +178,4 @@ fn is_ignored(path: PathBuf, ignored: &[&str]) -> Result<bool, Error> {
     }
 
     Ok(false)
-}
-
-fn read_head(repo_root: &Path) -> Result<String, Error> {
-    let str = fs::read_to_string(repo_root.join(super::REPO_DIR).join(super::HEAD_FILE))?;
-
-    Ok(str)
-}
-
-fn write_head(repo_root: &Path, digest: &str) -> Result<(), Error> {
-    fs::write(
-        repo_root.join(super::REPO_DIR).join(super::HEAD_FILE),
-        digest,
-    )?;
-
-    Ok(())
 }
