@@ -4,18 +4,19 @@
 - [X] refactor error handling so every call to lib returns result to the top level and panics are handled with proper exit code in main.rs and all the success messages are printed by main.rs. fight unwraps
 - [X] start doing tests ^_^
 - [ ] restore
-- [ ] refactor it to use declarative clap style
-- [ ] may be refactor it to read all the file tree in memory once and then operate with it in memory
-- [ ] guard repo with lock of filesystem node while doing job??? maybe use a .lock files for all the changes
+- [ ] make it compare ignore entries to path segments to equality
 - [ ] add support of getignore file (or even better just single .get.toml file with all the repo preferences and store options in static segment)
-- [ ] add static repo root path along with options so that it could be used throughout the program
 - [ ] remake blob content to be a byte slice to support arbitrary binary data, not just utf-8 text files.
+- [ ] add static repo root path along with options so that it could be used throughout the program
+- [ ] log
 - [ ] delete last commit
 - [ ] diff
 - [ ] branches
-- [ ] log
+- [ ] research and maybe set update timestamp to restored files to the time from extra gzip header segment
 - [ ] make it work from any place, not just repo root directory (using Path.ancestors)
 - [ ] support diffs
 - [ ] push/pull via ssh + conflicts detection
 - [ ] handle interrupt signal trying to clean up after the current job is interrupted
 - [ ] command to delete dangling objects (gc)
+- [ ] guard repo with lock of filesystem node while doing job??? maybe use a .lock files for all the changes
+- [ ] deal with empty folders

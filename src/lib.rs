@@ -20,14 +20,7 @@ const OBJECTS_DIR: &str = "objects";
 const COMMITS_DIR: &str = "commit";
 const TREE_DIR: &str = "tree";
 const BLOB_DIR: &str = "blob";
-const IGNORE: &[&str] = &[
-    ".git",
-    ".gitignore",
-    "target",
-    ".get",
-    "ignoredfolder",
-    ".get.toml",
-];
+const IGNORE: &[&str] = &[".git", ".gitignore", "target", ".get"];
 
 pub fn init(cur_path: &mut PathBuf) -> Result<(), Error> {
     cur_path.push(REPO_DIR);
