@@ -4,8 +4,9 @@
 - [X] refactor error handling so every call to lib returns result to the top level and panics are handled with proper exit code in main.rs and all the success messages are printed by main.rs. fight unwraps
 - [X] start doing tests ^_^
 - [ ] restore
-- [ ] make it compare ignore entries to path segments to equality
+- [ ] extract all the path variables to call config to not pass root_path through all the calls
 - [ ] add support of getignore file (or even better just single .get.toml file with all the repo preferences and store options in static segment)
+- [ ] make it compare ignore entries to path segments to equality
 - [ ] remake blob content to be a byte slice to support arbitrary binary data, not just utf-8 text files.
 - [ ] add static repo root path along with options so that it could be used throughout the program
 - [ ] log

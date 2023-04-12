@@ -14,6 +14,8 @@ fn repo_workflow() {
 
     setup_project_dir(&mut root_path);
 
+    assert!(get::commit(root_path.clone(), None, SystemTime::now()).is_err());
+
     // Init.
     assert!(get::init(&mut root_path).is_ok());
 

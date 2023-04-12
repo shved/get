@@ -2,12 +2,13 @@ use crate::error::Error;
 
 use std::fs;
 use std::fs::File;
+use std::io::BufReader;
+use std::io::Read;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use flate2::Compression;
-use flate2::GzBuilder;
+use flate2::{read::ZlibDecoder, Compression, GzBuilder};
 use sha1_smol::Sha1;
 
 #[derive(Debug)]
@@ -222,10 +223,39 @@ impl Object {
         Ok(())
     }
 
+    pub(crate) fn get_object(self, path: PathBuf) -> Result<Object, Error> {
+        let f = File::open(path)?;
+        let mut unzipper = ZlibDecoder::new(f);
+
+        let mut contents = String::new();
+        unzipper.read_to_string(&mut contents)?;
+
+        match self {
+            Object::Commit { content, .. } => {
+                unimplemented!()
+            }
+            Object::Tree { content, .. } => {
+                unimplemented!()
+            }
+            Object::Blob { content, .. } => {
+                unimplemented!()
+            }
+        }
+    }
+
     #[allow(dead_code)]
     pub(crate) fn restore_object(&self) -> Result<(), Error> {
         unimplemented!();
     }
+}
+
+fn read_archive_bytes(path: &Path) -> Result<Vec<u8>, Error> {
+    let f = File::open(path)?;
+    let mut reader = BufReader::new(f);
+    let mut buffer = Vec::new();
+    reader.read_to_end(&mut buffer)?;
+
+    Ok(buffer)
 }
 
 #[cfg(test)]

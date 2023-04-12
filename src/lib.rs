@@ -2,13 +2,13 @@ pub mod error;
 mod object;
 mod worktree;
 
+use crate::error::Error;
+
 use std::fs;
 use std::io;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-
-use crate::error::Error;
 
 const DEFAULT_FILE_PERMISSIONS: u32 = 0o644;
 const DEFAULT_DIR_PERMISSIONS: u32 = 0o755;
@@ -40,20 +40,21 @@ pub fn init(cur_path: &mut PathBuf) -> Result<(), Error> {
 
 pub fn commit(root_path: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<String, Error> {
     if !root_path.join(REPO_DIR).as_path().is_dir() {
-        return Err(Error::RepoAlreadyExist);
+        return Err(Error::NotAGetRepo);
     }
 
     // TODO Change default message to smthg more informative.
     let message = msg.unwrap_or("default commit message");
     let parent_commit_digest = read_head(root_path.as_path())?;
 
-    let new_commit_digest = worktree::commit(
+    let wt = worktree::from_files(
         root_path.clone(),
         parent_commit_digest,
         message,
         IGNORE,
         now,
     )?;
+    let new_commit_digest = wt.persist_commit().map(|s| s.to_string())?;
 
     write_head(root_path.as_path(), new_commit_digest.as_str())?;
 
@@ -61,6 +62,9 @@ pub fn commit(root_path: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<
 }
 
 pub fn restore(root_path: PathBuf, digest: &str) -> Result<(), Error> {
+    // let wt = worktree::from_commit(root_path, digest)?;
+
+    // let bytes = read_archive_bytes(root_path.join(digest).as_path())?;
     Ok(())
 }
 

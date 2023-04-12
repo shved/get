@@ -21,75 +21,64 @@ struct Node {
 /// Datastructure to hold all the file objects for a commit. Uses vector as a memory arena, but
 /// elements are linked by the indexes used as pointers. It is very handy since we only need a tree
 /// to build it, calculate digests and put it on the disk.
-struct Worktree(Vec<Node>);
+pub(crate) struct Worktree(Vec<Node>);
+
+pub(crate) fn from_files(
+    p: PathBuf,
+    parent_commit_digest: String,
+    message: &str,
+    ignore: &[&str],
+    now: SystemTime,
+) -> Result<Worktree, Error> {
+    let timestamp = now
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| Error::Unexpected)?;
+
+    // TODO Try to use .get.toml config and use current user id as a fallback.
+    let author = get_current_username()
+        .unwrap_or_else(|| {
+            warn!("couldn't fetch user name, default user name used instead");
+            OsString::from("unknown author")
+        })
+        .into_string()
+        .map_err(|_| Error::Unexpected)?;
+
+    let commit = Object::Commit {
+        path: p,
+        content: Vec::new(),
+        properties: vec![
+            parent_commit_digest,
+            author,
+            timestamp.as_secs().to_string(),
+            message.to_string(),
+        ],
+        message: message.to_string(),
+        timestamp,
+        digest: String::default(),
+    };
+
+    let node = Node {
+        children: Vec::new(),
+        obj: commit,
+    };
+
+    let mut wt = Worktree(vec![node]);
+
+    build_tree(&mut wt, 0, ignore)?;
+
+    wt.0[0].obj.update_digest()?;
+
+    Ok(wt)
+}
 
 impl Worktree {
-    fn from_files(
-        p: PathBuf,
-        parent_commit_digest: String,
-        message: &str,
-        ignore: &[&str],
-        now: SystemTime,
-    ) -> Result<Worktree, Error> {
-        let timestamp = now
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| Error::Unexpected)?;
-
-        // TODO Try to use .get.toml config and use current user id as a fallback.
-        let author = get_current_username()
-            .unwrap_or_else(|| {
-                warn!("couldn't fetch user name, default user name used instead");
-                OsString::from("unknown author")
-            })
-            .into_string()
-            .map_err(|_| Error::Unexpected)?;
-
-        let commit = Object::Commit {
-            path: p,
-            content: Vec::new(),
-            properties: vec![
-                parent_commit_digest,
-                author,
-                timestamp.as_secs().to_string(),
-                message.to_string(),
-            ],
-            message: message.to_string(),
-            timestamp,
-            digest: String::default(),
-        };
-
-        let node = Node {
-            children: Vec::new(),
-            obj: commit,
-        };
-
-        let mut wt = Worktree(vec![node]);
-
-        build_tree(&mut wt, 0, ignore)?;
-
-        wt.0[0].obj.update_digest()?;
-
-        Ok(wt)
-    }
-
-    fn persist_commit(&self) -> Result<&str, Error> {
+    pub(crate) fn persist_commit(&self) -> Result<&str, Error> {
         let root_path = self.0[0].obj.path();
 
         save_all_children(root_path, self, 0)?;
 
         Ok(self.0[0].obj.digest())
     }
-}
-
-pub(crate) fn commit(
-    root_path: PathBuf,
-    parent_commit_digest: String,
-    message: &str,
-    ignore: &[&str],
-    timestamp: SystemTime,
-) -> Result<String, Error> {
-    let wt = Worktree::from_files(root_path, parent_commit_digest, message, ignore, timestamp)?;
-    wt.persist_commit().map(|s| s.to_string())
 }
 
 fn build_tree(wt: &mut Worktree, current: NodeId, ignore: &[&str]) -> Result<(), Error> {

@@ -17,4 +17,7 @@ pub enum Error {
 
     #[error("io error {0}")]
     IoError(#[from] IoError),
+
+    #[error("no such commit")]
+    CommitNotFound,
 }
