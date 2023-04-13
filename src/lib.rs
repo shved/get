@@ -1,8 +1,11 @@
 pub mod error;
 mod object;
+mod paths;
 mod worktree;
 
 use crate::error::Error;
+use crate::paths::*;
+use crate::worktree::Worktree;
 
 use std::fs;
 use std::io;
@@ -13,17 +16,10 @@ use std::time::SystemTime;
 const DEFAULT_FILE_PERMISSIONS: u32 = 0o644;
 const DEFAULT_DIR_PERMISSIONS: u32 = 0o755;
 const EMPTY_REF: &str = "0000000000000000000000000000000000000000";
-const REPO_DIR: &str = ".get";
-const HEAD_FILE: &str = "HEAD";
-const LOG_FILE: &str = "LOG";
-const OBJECTS_DIR: &str = "objects";
-const COMMITS_DIR: &str = "commit";
-const TREE_DIR: &str = "tree";
-const BLOB_DIR: &str = "blob";
 const IGNORE: &[&str] = &[".git", ".gitignore", "target", ".get"];
 
 pub fn init(cur_path: &mut PathBuf) -> Result<(), Error> {
-    cur_path.push(REPO_DIR);
+    cur_path.push(paths::REPO_DIR);
 
     if cur_path.as_path().is_dir() {
         return Err(Error::RepoAlreadyExist);
@@ -39,7 +35,7 @@ pub fn init(cur_path: &mut PathBuf) -> Result<(), Error> {
 }
 
 pub fn commit(root_path: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<String, Error> {
-    if !root_path.join(REPO_DIR).as_path().is_dir() {
+    if !root_path.join(paths::REPO_DIR).as_path().is_dir() {
         return Err(Error::NotAGetRepo);
     }
 
@@ -47,14 +43,14 @@ pub fn commit(root_path: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<
     let message = msg.unwrap_or("default commit message");
     let parent_commit_digest = read_head(root_path.as_path())?;
 
-    let wt = worktree::from_files(
+    let wt = Worktree::from_files(
         root_path.clone(),
         parent_commit_digest,
         message,
         IGNORE,
         now,
     )?;
-    let new_commit_digest = wt.persist_commit().map(|s| s.to_string())?;
+    let new_commit_digest = wt.save_commit().map(|s| s.to_string())?;
 
     write_head(root_path.as_path(), new_commit_digest.as_str())?;
 
@@ -62,9 +58,16 @@ pub fn commit(root_path: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<
 }
 
 pub fn restore(root_path: PathBuf, digest: &str) -> Result<(), Error> {
-    // let wt = worktree::from_commit(root_path, digest)?;
+    if !root_path.join(paths::REPO_DIR).as_path().is_dir() {
+        return Err(Error::NotAGetRepo);
+    }
 
-    // let bytes = read_archive_bytes(root_path.join(digest).as_path())?;
+    let wt = Worktree::from_commit(&root_path, digest.to_owned())?;
+
+    wt.restore_files()?;
+
+    dbg!(wt);
+
     Ok(())
 }
 

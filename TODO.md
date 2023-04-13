@@ -5,7 +5,7 @@
 - [X] start doing tests ^_^
 - [ ] restore
 - [ ] extract all the path variables to call config to not pass root_path through all the calls
-- [ ] add support of getignore file (or even better just single .get.toml file with all the repo preferences and store options in static segment)
+- [ ] add support of getignore file (or even better just single .get.toml file with all the repo preferences and store options in static segment); warn if config not set, and defaults used
 - [ ] make it compare ignore entries to path segments to equality
 - [ ] remake blob content to be a byte slice to support arbitrary binary data, not just utf-8 text files.
 - [ ] add static repo root path along with options so that it could be used throughout the program

@@ -1,14 +1,14 @@
 use crate::error::Error;
+use crate::paths;
 
 use std::fs;
 use std::fs::File;
-use std::io::BufReader;
 use std::io::Read;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use flate2::{read::ZlibDecoder, Compression, GzBuilder};
+use flate2::{read::GzDecoder, Compression, GzBuilder};
 use sha1_smol::Sha1;
 
 #[derive(Debug)]
@@ -36,6 +36,8 @@ pub(crate) enum Object {
         digest: String,
     },
 }
+
+pub(crate) type ObjectString = (String, String, String); // Object type, digest and filename.
 
 impl Object {
     pub(crate) fn path(&self) -> &Path {
@@ -132,7 +134,7 @@ impl Object {
                     .ok_or(Error::Unexpected)?;
                 Ok(format!(
                     "{}\t{}\t{}\n",
-                    super::TREE_DIR,
+                    paths::TREE_DIR,
                     digest.as_str(),
                     file_name
                 ))
@@ -145,7 +147,7 @@ impl Object {
                     .ok_or(Error::Unexpected)?;
                 Ok(format!(
                     "{}\t{}\t{}\n",
-                    super::BLOB_DIR,
+                    paths::BLOB_DIR,
                     digest.as_str(),
                     file_name,
                 ))
@@ -163,12 +165,7 @@ impl Object {
                 digest,
                 ..
             } => {
-                let save_path = repo_root // TODO Do something with this crap.
-                    .join(super::REPO_DIR)
-                    .join(super::OBJECTS_DIR)
-                    .join(super::COMMITS_DIR)
-                    .join(digest);
-                let f = File::create(save_path)?;
+                let f = File::create(paths::commits_path(repo_root).join(digest))?;
 
                 let mut zipper = GzBuilder::new()
                     .filename(digest.as_bytes())
@@ -176,19 +173,14 @@ impl Object {
                     .extra(timestamp.as_secs().to_string().as_bytes())
                     .write(f, Compression::default());
 
+                zipper.write_all(format_commit_properties(properties.clone()).as_bytes())?;
                 zipper.write_all(content.join("").as_bytes())?;
-                zipper.write_all(properties.join("").as_bytes())?;
                 zipper.finish()?;
             }
             Self::Tree {
                 content, digest, ..
             } => {
-                let save_path = repo_root // TODO Do something with this crap.
-                    .join(super::REPO_DIR)
-                    .join(super::OBJECTS_DIR)
-                    .join(super::TREE_DIR)
-                    .join(digest);
-                let f = File::create(save_path)?;
+                let f = File::create(paths::commits_path(repo_root).join(digest))?;
 
                 let mut zipper = GzBuilder::new()
                     .filename(digest.as_bytes())
@@ -202,12 +194,7 @@ impl Object {
             Self::Blob {
                 content, digest, ..
             } => {
-                let save_path = repo_root // TODO Do something with this crap.
-                    .join(super::REPO_DIR)
-                    .join(super::OBJECTS_DIR)
-                    .join(super::BLOB_DIR)
-                    .join(digest);
-                let f = File::create(save_path)?;
+                let f = File::create(paths::commits_path(repo_root).join(digest))?;
 
                 let mut zipper = GzBuilder::new()
                     .filename(digest.as_bytes())
@@ -223,39 +210,96 @@ impl Object {
         Ok(())
     }
 
-    pub(crate) fn get_object(self, path: PathBuf) -> Result<Object, Error> {
-        let f = File::open(path)?;
-        let mut unzipper = ZlibDecoder::new(f);
+    pub(crate) fn read_commit(root_path: &PathBuf, digest: String) -> Result<Object, Error> {
+        let (_name, contents) = decode_archive(
+            paths::commits_path(&root_path)
+                .join(digest.clone())
+                .as_path(),
+        )?;
 
-        let mut contents = String::new();
-        unzipper.read_to_string(&mut contents)?;
+        let lines: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();
 
-        match self {
-            Object::Commit { content, .. } => {
-                unimplemented!()
-            }
-            Object::Tree { content, .. } => {
-                unimplemented!()
-            }
-            Object::Blob { content, .. } => {
-                unimplemented!()
-            }
+        if lines.len() < 4 {
+            return Err(Error::Unexpected);
         }
+
+        let commit = Object::Commit {
+            path: root_path.clone(),
+            properties: lines[0..=3].to_vec(),
+            content: lines[4..].to_vec(),
+            message: lines[3].clone(),
+            timestamp: Duration::new(lines[2].parse::<u64>().unwrap(), 0),
+            digest,
+        };
+
+        Ok(commit)
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn restore_object(&self) -> Result<(), Error> {
-        unimplemented!();
+    pub(crate) fn read_tree(
+        root_path: &PathBuf,
+        parent_path: PathBuf,
+        digest: String,
+    ) -> Result<Object, Error> {
+        let (name, contents) =
+            decode_archive(paths::tree_path(&root_path).join(digest.clone()).as_path())?;
+
+        let lines: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();
+
+        if lines.len() < 1 {
+            return Err(Error::Unexpected);
+        }
+
+        let path = parent_path.join(name);
+
+        let children: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();
+
+        let tree = Object::Tree {
+            path,
+            content: children,
+            digest,
+        };
+
+        Ok(tree)
+    }
+
+    pub(crate) fn read_blob(
+        root_path: &PathBuf,
+        parent_path: PathBuf,
+        digest: String,
+    ) -> Result<Object, Error> {
+        let (name, content) =
+            decode_archive(paths::blob_path(&root_path).join(digest.clone()).as_path())?;
+
+        let path = parent_path.join(name);
+
+        let blob = Object::Blob {
+            path,
+            content,
+            digest,
+        };
+
+        Ok(blob)
     }
 }
 
-fn read_archive_bytes(path: &Path) -> Result<Vec<u8>, Error> {
-    let f = File::open(path)?;
-    let mut reader = BufReader::new(f);
-    let mut buffer = Vec::new();
-    reader.read_to_end(&mut buffer)?;
+// TODO Test it.
+fn format_commit_properties(props: Vec<String>) -> String {
+    let mut joined = props.join("\n");
+    joined.push('\n');
+    joined
+}
 
-    Ok(buffer)
+fn decode_archive(path: &Path) -> Result<(String, String), Error> {
+    let f = File::open(path)?;
+    let mut decoder = GzDecoder::new(f);
+    let mut contents = String::new();
+    decoder.read_to_string(&mut contents)?;
+    let header = decoder.header().ok_or(Error::Unexpected)?;
+    let filename_slice = header.filename().ok_or(Error::Unexpected)?;
+    let filename_str =
+        String::from_utf8(filename_slice.to_owned()).map_err(|_| Error::UnsupportedEncoding)?;
+
+    Ok((filename_str, contents))
 }
 
 #[cfg(test)]
