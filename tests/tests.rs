@@ -1,11 +1,11 @@
 use std::fs;
-// use std::mem;
+use std::mem;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 use tempdir::TempDir;
 
-const FIRST_COMMIT_DIGEST: &str = "aa3392b46447d7e2023e2706929f97b4eb7271fc";
+const FIRST_COMMIT_DIGEST: &str = "bbe631775aa4859f39dd10474aadd0df87267a89";
 
 #[test]
 fn repo_workflow() {
@@ -44,8 +44,10 @@ fn repo_workflow() {
     // Init again and fail.
     assert!(get::init(&mut root_path).is_err());
 
-    // Uncomment to review the project folder after test run.
+    assert!(get::restore(root_path.clone(), FIRST_COMMIT_DIGEST).is_ok());
+
     // mem::forget(repo_root);
+    // Uncomment to review the project folder after test run.
 }
 
 fn setup_project_dir(root_path: &mut PathBuf) {

@@ -21,3 +21,4 @@
 - [ ] command to delete dangling objects (gc)
 - [ ] guard repo with lock of filesystem node while doing job??? maybe use a .lock files for all the changes
 - [ ] deal with empty folders
+- [ ] support multiline commit message

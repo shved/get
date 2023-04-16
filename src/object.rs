@@ -133,7 +133,7 @@ impl Object {
                     .to_str()
                     .ok_or(Error::Unexpected)?;
                 Ok(format!(
-                    "{}\t{}\t{}\n",
+                    "{}\t{}\t{}",
                     paths::TREE_DIR,
                     digest.as_str(),
                     file_name
@@ -146,7 +146,7 @@ impl Object {
                     .to_str()
                     .ok_or(Error::Unexpected)?;
                 Ok(format!(
-                    "{}\t{}\t{}\n",
+                    "{}\t{}\t{}",
                     paths::BLOB_DIR,
                     digest.as_str(),
                     file_name,
@@ -174,13 +174,13 @@ impl Object {
                     .write(f, Compression::default());
 
                 zipper.write_all(format_commit_properties(properties.clone()).as_bytes())?;
-                zipper.write_all(content.join("").as_bytes())?;
+                zipper.write_all(content.join("\n").as_bytes())?;
                 zipper.finish()?;
             }
             Self::Tree {
                 content, digest, ..
             } => {
-                let f = File::create(paths::commits_path(repo_root).join(digest))?;
+                let f = File::create(paths::tree_path(repo_root).join(digest))?;
 
                 let mut zipper = GzBuilder::new()
                     .filename(digest.as_bytes())
@@ -188,13 +188,13 @@ impl Object {
                     // .extra(timestamp.as_secs().into())
                     .write(f, Compression::default());
 
-                zipper.write_all(content.join("").as_bytes())?;
+                zipper.write_all(content.join("\n").as_bytes())?;
                 zipper.finish()?;
             }
             Self::Blob {
                 content, digest, ..
             } => {
-                let f = File::create(paths::commits_path(repo_root).join(digest))?;
+                let f = File::create(paths::blob_path(repo_root).join(digest))?;
 
                 let mut zipper = GzBuilder::new()
                     .filename(digest.as_bytes())
@@ -219,6 +219,7 @@ impl Object {
 
         let lines: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();
 
+        // Verify a commit has at least it's basic properties.
         if lines.len() < 4 {
             return Err(Error::Unexpected);
         }
@@ -310,7 +311,7 @@ mod tests {
 
     #[test]
     fn update_digest_commit() {
-        let message = "descriptive commit message\nwith several\nlines.";
+        let message = "descriptive commit message with several lines.";
         let commit_properties = vec![
             String::from("1234567890abcdefghij"), // digest
             String::from("rakhmaninov"),          // author
@@ -321,12 +322,12 @@ mod tests {
         let mut commit = Object::Commit {
             path: PathBuf::from("/tmp"),
             content: vec![
-                String::from("blob\t32bab984c61ba43ba15e479b23df5e828aa43864\tCargo.lock\n"),
-                String::from("blob\t77c57febfc94ff583a1a15a004d01cf6e16a4442\tCargo.toml\n"),
-                String::from("blob\t9c00c0236a2b133dbfbc7ad799f9ea5ce685c2e4\tTODO.md\n"),
-                String::from("blob\te28de939637c3a53b10c53ebfc3203acbf168717\t.rustfmt.toml\n"),
-                String::from("tree\t17d520fea68d0d107a4e8becad26e47f37e73aab\tsrc\n"),
-                String::from("tree\t9dffa2d73d8b2f67a59768600023cd32b21ba7ac\tdummy_app\n"),
+                String::from("blob\t32bab984c61ba43ba15e479b23df5e828aa43864\tCargo.lock"),
+                String::from("blob\t77c57febfc94ff583a1a15a004d01cf6e16a4442\tCargo.toml"),
+                String::from("blob\t9c00c0236a2b133dbfbc7ad799f9ea5ce685c2e4\tTODO.md"),
+                String::from("blob\te28de939637c3a53b10c53ebfc3203acbf168717\t.rustfmt.toml"),
+                String::from("tree\t17d520fea68d0d107a4e8becad26e47f37e73aab\tsrc"),
+                String::from("tree\t9dffa2d73d8b2f67a59768600023cd32b21ba7ac\tdummy_app"),
             ],
             properties: commit_properties.clone(),
             message: String::from(message),
@@ -335,17 +336,17 @@ mod tests {
         };
 
         assert!(commit.update_digest().is_ok());
-        assert!(commit.digest() == "a0619e63ff785e9f1291228ea76b83a1c39090d6");
+        assert!(commit.digest() == "2753e92b249668d8389db72282cabf048aea34c3");
 
         let mut commit_with_content_reordered = Object::Commit {
             path: PathBuf::from("/tmp"),
             content: vec![
-                String::from("blob\te28de939637c3a53b10c53ebfc3203acbf168717\t.rustfmt.toml\n"),
-                String::from("blob\t9c00c0236a2b133dbfbc7ad799f9ea5ce685c2e4\tTODO.md\n"),
-                String::from("blob\t77c57febfc94ff583a1a15a004d01cf6e16a4442\tCargo.toml\n"),
-                String::from("tree\t17d520fea68d0d107a4e8becad26e47f37e73aab\tsrc\n"),
-                String::from("blob\t32bab984c61ba43ba15e479b23df5e828aa43864\tCargo.lock\n"),
-                String::from("tree\t9dffa2d73d8b2f67a59768600023cd32b21ba7ac\tdummy_app\n"),
+                String::from("blob\te28de939637c3a53b10c53ebfc3203acbf168717\t.rustfmt.toml"),
+                String::from("blob\t9c00c0236a2b133dbfbc7ad799f9ea5ce685c2e4\tTODO.md"),
+                String::from("blob\t77c57febfc94ff583a1a15a004d01cf6e16a4442\tCargo.toml"),
+                String::from("tree\t17d520fea68d0d107a4e8becad26e47f37e73aab\tsrc"),
+                String::from("blob\t32bab984c61ba43ba15e479b23df5e828aa43864\tCargo.lock"),
+                String::from("tree\t9dffa2d73d8b2f67a59768600023cd32b21ba7ac\tdummy_app"),
             ],
             properties: commit_properties.clone(),
             message: String::from(message),
@@ -362,26 +363,26 @@ mod tests {
         let mut tree = Object::Tree {
             path: PathBuf::from("/tmp"),
             content: vec![
-                String::from("blob\t0a883d942f72a18558810edd255d846f408ed35a\tmain.rs\n"),
-                String::from("blob\t44dd4de05dddc1235fdb19bf1ab2dc4c11178da8\tobject.rs\n"),
-                String::from("blob\t5651a0070d5d6031b7b9e53e7d962acfb9fdfba1\tworktree.rs\n"),
-                String::from("blob\td4c47993f35fec5888d41e74aa67cda00242376a\tlib.rs\n"),
-                String::from("blob\tf8cf364dd0b44a6c44c99600ff6d2ca9111c3a23\terror.rs\n"),
+                String::from("blob\t0a883d942f72a18558810edd255d846f408ed35a\tmain.rs"),
+                String::from("blob\t44dd4de05dddc1235fdb19bf1ab2dc4c11178da8\tobject.rs"),
+                String::from("blob\t5651a0070d5d6031b7b9e53e7d962acfb9fdfba1\tworktree.rs"),
+                String::from("blob\td4c47993f35fec5888d41e74aa67cda00242376a\tlib.rs"),
+                String::from("blob\tf8cf364dd0b44a6c44c99600ff6d2ca9111c3a23\terror.rs"),
             ],
             digest: String::default(),
         };
 
         assert!(tree.update_digest().is_ok());
-        assert!(tree.digest() == "2956f8a9a34d9b58b93d16426ee4689f5b2b7964");
+        assert!(tree.digest() == "1bba1312886239216792daa5a21d9ecf65cebd75");
 
         let mut tree_with_content_reordered = Object::Tree {
             path: PathBuf::from("/tmp"),
             content: vec![
-                String::from("blob\td4c47993f35fec5888d41e74aa67cda00242376a\tlib.rs\n"),
-                String::from("blob\t44dd4de05dddc1235fdb19bf1ab2dc4c11178da8\tobject.rs\n"),
-                String::from("blob\t5651a0070d5d6031b7b9e53e7d962acfb9fdfba1\tworktree.rs\n"),
-                String::from("blob\tf8cf364dd0b44a6c44c99600ff6d2ca9111c3a23\terror.rs\n"),
-                String::from("blob\t0a883d942f72a18558810edd255d846f408ed35a\tmain.rs\n"),
+                String::from("blob\td4c47993f35fec5888d41e74aa67cda00242376a\tlib.rs"),
+                String::from("blob\t44dd4de05dddc1235fdb19bf1ab2dc4c11178da8\tobject.rs"),
+                String::from("blob\t5651a0070d5d6031b7b9e53e7d962acfb9fdfba1\tworktree.rs"),
+                String::from("blob\tf8cf364dd0b44a6c44c99600ff6d2ca9111c3a23\terror.rs"),
+                String::from("blob\t0a883d942f72a18558810edd255d846f408ed35a\tmain.rs"),
             ],
             digest: String::default(),
         };
@@ -400,7 +401,7 @@ mod tests {
 
         let content_line = tree.obj_content_line();
         assert!(content_line.is_ok());
-        assert!(content_line.unwrap() == String::from("tree\tdigest\ttmp\n"));
+        assert!(content_line.unwrap() == String::from("tree\tdigest\ttmp"));
     }
 
     #[test]
@@ -413,6 +414,6 @@ mod tests {
 
         let content_line = blob.obj_content_line();
         assert!(content_line.is_ok());
-        assert!(content_line.unwrap() == String::from("blob\tdigest\todyssey.txt\n"));
+        assert!(content_line.unwrap() == String::from("blob\tdigest\todyssey.txt"));
     }
 }

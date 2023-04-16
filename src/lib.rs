@@ -19,25 +19,16 @@ const EMPTY_REF: &str = "0000000000000000000000000000000000000000";
 const IGNORE: &[&str] = &[".git", ".gitignore", "target", ".get"];
 
 pub fn init(cur_path: &mut PathBuf) -> Result<(), Error> {
-    cur_path.push(paths::REPO_DIR);
-
-    if cur_path.as_path().is_dir() {
-        return Err(Error::RepoAlreadyExist);
-    }
+    check_no_repo_dir(cur_path)?;
 
     create_dirs(cur_path)?;
-
     create_files(cur_path)?;
-
-    cur_path.pop();
 
     Ok(())
 }
 
 pub fn commit(root_path: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<String, Error> {
-    if !root_path.join(paths::REPO_DIR).as_path().is_dir() {
-        return Err(Error::NotAGetRepo);
-    }
+    check_repo_dir(&root_path)?;
 
     // TODO Change default message to smthg more informative.
     let message = msg.unwrap_or("default commit message");
@@ -50,6 +41,7 @@ pub fn commit(root_path: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<
         IGNORE,
         now,
     )?;
+
     let new_commit_digest = wt.save_commit().map(|s| s.to_string())?;
 
     write_head(root_path.as_path(), new_commit_digest.as_str())?;
@@ -58,9 +50,7 @@ pub fn commit(root_path: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<
 }
 
 pub fn restore(root_path: PathBuf, digest: &str) -> Result<(), Error> {
-    if !root_path.join(paths::REPO_DIR).as_path().is_dir() {
-        return Err(Error::NotAGetRepo);
-    }
+    check_repo_dir(&root_path)?;
 
     let wt = Worktree::from_commit(&root_path, digest.to_owned())?;
 
@@ -73,39 +63,45 @@ pub fn restore(root_path: PathBuf, digest: &str) -> Result<(), Error> {
 
 fn create_dirs(cur_path: &mut PathBuf) -> Result<(), Error> {
     // Crete `.get`.
-    fs::create_dir(cur_path.as_path())?;
-    fs::set_permissions(
-        cur_path.as_path(),
-        fs::Permissions::from_mode(DEFAULT_DIR_PERMISSIONS),
-    )?;
+    cur_path.push(paths::REPO_DIR);
+    create_dir(cur_path)?;
 
     // Crete `.get/objects`.
-    create_dir(cur_path, OBJECTS_DIR)?;
+    cur_path.push(paths::OBJECTS_DIR);
+    create_dir(cur_path)?;
 
     // Crete `.get/objects/*` dirs.
-    cur_path.push(OBJECTS_DIR);
-    create_dir(cur_path, COMMITS_DIR)?;
-    create_dir(cur_path, TREE_DIR)?;
-    create_dir(cur_path, BLOB_DIR)?;
+    cur_path.push(paths::COMMITS_DIR);
+    create_dir(cur_path)?;
+    cur_path.pop();
+
+    cur_path.push(paths::TREE_DIR);
+    create_dir(cur_path)?;
+    cur_path.pop();
+
+    cur_path.push(paths::BLOB_DIR);
+    create_dir(cur_path)?;
+    cur_path.pop();
+
+    cur_path.pop();
     cur_path.pop();
 
     Ok(())
 }
 
-fn create_dir(cur_path: &mut PathBuf, name: &str) -> io::Result<()> {
-    cur_path.push(name);
+fn create_dir(cur_path: &mut PathBuf) -> io::Result<()> {
     fs::create_dir(cur_path.as_path())?;
     fs::set_permissions(
         cur_path.as_path(),
         fs::Permissions::from_mode(DEFAULT_DIR_PERMISSIONS),
     )?;
-    cur_path.pop();
 
     Ok(())
 }
 
 fn create_files(cur_path: &mut PathBuf) -> io::Result<()> {
-    cur_path.push(HEAD_FILE);
+    cur_path.push(paths::REPO_DIR);
+    cur_path.push(paths::HEAD_FILE);
     fs::write(cur_path.as_path(), EMPTY_REF)?;
     fs::set_permissions(
         cur_path.as_path(),
@@ -113,7 +109,7 @@ fn create_files(cur_path: &mut PathBuf) -> io::Result<()> {
     )?;
     cur_path.pop();
 
-    cur_path.push(LOG_FILE);
+    cur_path.push(paths::LOG_FILE);
     fs::File::create(cur_path.as_path())?;
     fs::set_permissions(
         cur_path.as_path(),
@@ -121,17 +117,19 @@ fn create_files(cur_path: &mut PathBuf) -> io::Result<()> {
     )?;
     cur_path.pop();
 
+    cur_path.pop();
+
     Ok(())
 }
 
 fn read_head(repo_root: &Path) -> Result<String, Error> {
-    let str = fs::read_to_string(repo_root.join(REPO_DIR).join(HEAD_FILE))?;
+    let str = fs::read_to_string(paths::head_path(repo_root))?;
 
     Ok(str)
 }
 
 fn write_head(repo_root: &Path, digest: &str) -> Result<(), Error> {
-    fs::write(repo_root.join(REPO_DIR).join(HEAD_FILE), digest)?;
+    fs::write(paths::head_path(repo_root), digest)?;
 
     Ok(())
 }

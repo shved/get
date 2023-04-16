@@ -1,3 +1,5 @@
+use crate::error::Error;
+
 use std::path::{Path, PathBuf};
 
 pub(crate) const REPO_DIR: &str = ".get";
@@ -26,4 +28,20 @@ pub(crate) fn head_path(repo_root: &Path) -> PathBuf {
 
 pub(crate) fn log_path(repo_root: &Path) -> PathBuf {
     repo_root.join(REPO_DIR).join(LOG_FILE)
+}
+
+pub(crate) fn check_repo_dir(repo_root: &PathBuf) -> Result<(), Error> {
+    if repo_root.join(REPO_DIR).is_dir() {
+        return Ok(());
+    }
+
+    Err(Error::NotAGetRepo)
+}
+
+pub(crate) fn check_no_repo_dir(repo_root: &PathBuf) -> Result<(), Error> {
+    if repo_root.join(REPO_DIR).is_dir() {
+        return Err(Error::RepoAlreadyExist);
+    }
+
+    Ok(())
 }

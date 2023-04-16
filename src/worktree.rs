@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::object::{Object, ObjectString};
+use crate::paths;
 
 use std::ffi::OsString;
 use std::fs;
@@ -128,7 +129,7 @@ fn restore_tree_from_storage(
     if children.len() > 0 {
         wt.0.append(&mut children);
 
-        for ix in i..wt.0.len() {
+        for ix in (i + 1)..wt.0.len() {
             wt.0.get_mut(i).ok_or(Error::Unexpected)?.children.push(ix);
             restore_tree_from_storage(root_path, wt, ix)?;
         }
@@ -152,7 +153,7 @@ fn build_children(
             .unwrap();
 
         let node = match parts.0.as_ref() {
-            "tree" => {
+            paths::TREE_DIR => {
                 let tree = Object::read_tree(&root_path, parent_path.clone(), parts.1)?;
 
                 let node = Node {
@@ -162,7 +163,7 @@ fn build_children(
 
                 node
             }
-            "blob" => {
+            paths::BLOB_DIR => {
                 let blob = Object::read_blob(&root_path, parent_path.clone(), parts.1)?;
 
                 let node = Node {
@@ -235,10 +236,11 @@ fn build_tree_from_files(wt: &mut Worktree, current: NodeId, ignore: &[&str]) ->
 
         // Append a parent object content with new child.
         let content_line = wt.0[new_cur].obj.obj_content_line()?;
-        wt.0[current].obj.append_content(content_line);
-
-        // Update current node digest.
-        wt.0[current].obj.update_digest()?;
+        if !content_line.is_empty() {
+            wt.0[current].obj.append_content(content_line);
+            // Update current node digest.
+            wt.0[current].obj.update_digest()?;
+        }
     }
 
     Ok(())
