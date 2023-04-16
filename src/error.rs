@@ -20,4 +20,7 @@ pub enum Error {
 
     #[error("no such commit")]
     CommitNotFound,
+
+    #[error("repo working diractory not set before use")]
+    WorkingDirNotSet,
 }

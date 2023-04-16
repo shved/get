@@ -15,7 +15,7 @@ use sha1_smol::Sha1;
 pub(crate) enum Object {
     Commit {
         path: PathBuf,
-        // Repo root content to save and calculate digest.
+        // Working directory content to save and calculate digest.
         content: Vec<String>,
         // Additional properties for a commit to save and calculate digest.
         properties: Vec<String>,
@@ -156,7 +156,7 @@ impl Object {
         }
     }
 
-    pub(crate) fn save_object(&self, repo_root: &Path) -> Result<(), Error> {
+    pub(crate) fn save_object(&self) -> Result<(), Error> {
         match self {
             Self::Commit {
                 content,
@@ -166,7 +166,7 @@ impl Object {
                 digest,
                 ..
             } => {
-                let f = File::create(paths::commits_path(repo_root).join(digest))?;
+                let f = File::create(paths::commits_path().join(digest))?;
 
                 let mut zipper = GzBuilder::new()
                     .filename(digest.as_bytes())
@@ -181,7 +181,7 @@ impl Object {
             Self::Tree {
                 content, digest, ..
             } => {
-                let f = File::create(paths::tree_path(repo_root).join(digest))?;
+                let f = File::create(paths::tree_path().join(digest))?;
 
                 let mut zipper = GzBuilder::new()
                     .filename(digest.as_bytes())
@@ -195,7 +195,7 @@ impl Object {
             Self::Blob {
                 content, digest, ..
             } => {
-                let f = File::create(paths::blob_path(repo_root).join(digest))?;
+                let f = File::create(paths::blob_path().join(digest))?;
 
                 let mut zipper = GzBuilder::new()
                     .filename(digest.as_bytes())
@@ -211,12 +211,9 @@ impl Object {
         Ok(())
     }
 
-    pub(crate) fn read_commit(root_path: &PathBuf, digest: String) -> Result<Object, Error> {
-        let (_name, contents) = decode_archive(
-            paths::commits_path(&root_path)
-                .join(digest.clone())
-                .as_path(),
-        )?;
+    pub(crate) fn read_commit(digest: String) -> Result<Object, Error> {
+        let (_name, contents) =
+            decode_archive(paths::commits_path().join(digest.clone()).as_path())?;
 
         let lines: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();
 
@@ -226,7 +223,7 @@ impl Object {
         }
 
         let commit = Object::Commit {
-            path: root_path.clone(),
+            path: paths::get_working_dir().unwrap().to_owned(),
             properties: lines[0..=3].to_vec(),
             content: lines[4..].to_vec(),
             message: lines[3].clone(),
@@ -237,13 +234,8 @@ impl Object {
         Ok(commit)
     }
 
-    pub(crate) fn read_tree(
-        root_path: &PathBuf,
-        parent_path: PathBuf,
-        digest: String,
-    ) -> Result<Object, Error> {
-        let (name, contents) =
-            decode_archive(paths::tree_path(&root_path).join(digest.clone()).as_path())?;
+    pub(crate) fn read_tree(parent_path: PathBuf, digest: String) -> Result<Object, Error> {
+        let (name, contents) = decode_archive(paths::tree_path().join(digest.clone()).as_path())?;
 
         let lines: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();
 
@@ -264,13 +256,8 @@ impl Object {
         Ok(tree)
     }
 
-    pub(crate) fn read_blob(
-        root_path: &PathBuf,
-        parent_path: PathBuf,
-        digest: String,
-    ) -> Result<Object, Error> {
-        let (name, content) =
-            decode_archive(paths::blob_path(&root_path).join(digest.clone()).as_path())?;
+    pub(crate) fn read_blob(parent_path: PathBuf, digest: String) -> Result<Object, Error> {
+        let (name, content) = decode_archive(paths::blob_path().join(digest.clone()).as_path())?;
 
         let path = parent_path.join(name);
 

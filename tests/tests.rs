@@ -35,7 +35,7 @@ fn repo_workflow() {
     let first_commit_digest = get::commit(root_path.clone(), commit_message, timestamp);
 
     assert!(first_commit_digest.is_ok());
-    assert_eq!(first_commit_digest.unwrap(), FIRST_COMMIT_DIGEST,);
+    assert_eq!(first_commit_digest.unwrap(), FIRST_COMMIT_DIGEST);
 
     let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
     assert!(cur_head.is_ok());
@@ -51,6 +51,7 @@ fn repo_workflow() {
     let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
     assert!(cur_head.is_ok());
     assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST,);
+
     // TODO check files contents consistency after restore.
     // mem::forget(repo_root);
 }

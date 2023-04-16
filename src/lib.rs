@@ -4,13 +4,12 @@ mod paths;
 mod worktree;
 
 use crate::error::Error;
-use crate::paths::*;
 use crate::worktree::Worktree;
 
 use std::fs;
 use std::io;
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::SystemTime;
 
 const DEFAULT_FILE_PERMISSIONS: u32 = 0o644;
@@ -18,45 +17,41 @@ const DEFAULT_DIR_PERMISSIONS: u32 = 0o755;
 const EMPTY_REF: &str = "0000000000000000000000000000000000000000";
 const IGNORE: &[&str] = &[".git", ".gitignore", "target", ".get"];
 
-pub fn init(cur_path: &mut PathBuf) -> Result<(), Error> {
-    check_no_repo_dir(cur_path)?;
+pub fn init(work_dir: &mut PathBuf) -> Result<(), Error> {
+    paths::check_no_repo_dir(work_dir)?;
 
-    create_utility_dirs(cur_path)?;
-    create_utility_files(cur_path)?;
+    create_utility_dirs(work_dir)?;
+    create_utility_files(work_dir)?;
 
     Ok(())
 }
 
-pub fn commit(root_path: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<String, Error> {
-    check_repo_dir(&root_path)?;
+pub fn commit(working_dir: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<String, Error> {
+    paths::check_repo_dir(working_dir.as_path())?;
+    paths::set_working_dir(working_dir.clone());
 
     // TODO Change default message to smthg more informative.
     let message = msg.unwrap_or("default commit message");
-    let parent_commit_digest = read_head(root_path.as_path())?;
+    let parent_commit_digest = read_head()?;
 
-    let wt = Worktree::from_files(
-        root_path.clone(),
-        parent_commit_digest,
-        message,
-        IGNORE,
-        now,
-    )?;
+    let wt = Worktree::from_files(parent_commit_digest, message, IGNORE, now)?;
 
     let new_commit_digest = wt.save_commit().map(|s| s.to_string())?;
 
-    write_head(root_path.as_path(), new_commit_digest.as_str())?;
+    write_head(new_commit_digest.as_str())?;
 
     Ok(new_commit_digest)
 }
 
-pub fn restore(root_path: PathBuf, digest: &str) -> Result<(), Error> {
-    check_repo_dir(&root_path)?;
+pub fn restore(working_dir: PathBuf, digest: &str) -> Result<(), Error> {
+    paths::check_repo_dir(working_dir.as_path())?;
+    paths::set_working_dir(working_dir.clone());
 
-    let wt = Worktree::from_commit(&root_path, digest.to_owned())?;
+    let wt = Worktree::from_commit(digest.to_owned())?;
 
-    wt.restore_files(root_path.clone())?;
+    wt.restore_files()?;
 
-    write_head(root_path.as_path(), digest)?;
+    write_head(digest)?;
 
     Ok(())
 }
@@ -122,14 +117,14 @@ fn create_utility_files(cur_path: &mut PathBuf) -> io::Result<()> {
     Ok(())
 }
 
-fn read_head(repo_root: &Path) -> Result<String, Error> {
-    let str = fs::read_to_string(paths::head_path(repo_root))?;
+fn read_head() -> Result<String, Error> {
+    let str = fs::read_to_string(paths::head_path())?;
 
     Ok(str)
 }
 
-fn write_head(repo_root: &Path, digest: &str) -> Result<(), Error> {
-    fs::write(paths::head_path(repo_root), digest)?;
+fn write_head(digest: &str) -> Result<(), Error> {
+    fs::write(paths::head_path(), digest)?;
 
     Ok(())
 }
