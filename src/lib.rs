@@ -21,8 +21,8 @@ const IGNORE: &[&str] = &[".git", ".gitignore", "target", ".get"];
 pub fn init(cur_path: &mut PathBuf) -> Result<(), Error> {
     check_no_repo_dir(cur_path)?;
 
-    create_dirs(cur_path)?;
-    create_files(cur_path)?;
+    create_utility_dirs(cur_path)?;
+    create_utility_files(cur_path)?;
 
     Ok(())
 }
@@ -54,14 +54,14 @@ pub fn restore(root_path: PathBuf, digest: &str) -> Result<(), Error> {
 
     let wt = Worktree::from_commit(&root_path, digest.to_owned())?;
 
-    wt.restore_files()?;
+    wt.restore_files(root_path.clone())?;
 
-    dbg!(wt);
+    write_head(root_path.as_path(), digest)?;
 
     Ok(())
 }
 
-fn create_dirs(cur_path: &mut PathBuf) -> Result<(), Error> {
+fn create_utility_dirs(cur_path: &mut PathBuf) -> Result<(), Error> {
     // Crete `.get`.
     cur_path.push(paths::REPO_DIR);
     create_dir(cur_path)?;
@@ -99,7 +99,7 @@ fn create_dir(cur_path: &mut PathBuf) -> io::Result<()> {
     Ok(())
 }
 
-fn create_files(cur_path: &mut PathBuf) -> io::Result<()> {
+fn create_utility_files(cur_path: &mut PathBuf) -> io::Result<()> {
     cur_path.push(paths::REPO_DIR);
     cur_path.push(paths::HEAD_FILE);
     fs::write(cur_path.as_path(), EMPTY_REF)?;

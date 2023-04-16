@@ -31,6 +31,7 @@ pub(crate) enum Object {
     },
     Blob {
         path: PathBuf,
+        full_path: PathBuf,
         // Simply file content.
         content: String,
         digest: String,
@@ -89,12 +90,12 @@ impl Object {
                 *digest = hasher.digest().to_string();
             }
             Self::Blob {
-                path,
+                full_path,
                 content,
                 digest,
                 ..
             } => {
-                let file_content = fs::read_to_string(path.as_path())?;
+                let file_content = fs::read_to_string(full_path.as_path())?;
                 let mut hasher = Sha1::new();
                 hasher.update(file_content.as_bytes());
                 *content = file_content;
@@ -275,6 +276,7 @@ impl Object {
 
         let blob = Object::Blob {
             path,
+            full_path: PathBuf::default(), // Not needed at this point.
             content,
             digest,
         };
@@ -408,6 +410,7 @@ mod tests {
     fn blob_obj_content_line() {
         let blob = Object::Blob {
             path: PathBuf::from("/tmp/odyssey.txt"),
+            full_path: PathBuf::default(),
             content: String::default(),
             digest: String::from("digest"),
         };

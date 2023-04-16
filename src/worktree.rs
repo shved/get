@@ -1,9 +1,11 @@
 use crate::error::Error;
 use crate::object::{Object, ObjectString};
 use crate::paths;
+use crate::{DEFAULT_DIR_PERMISSIONS, DEFAULT_FILE_PERMISSIONS};
 
 use std::ffi::OsString;
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -46,6 +48,8 @@ impl Worktree {
             .into_string()
             .map_err(|_| Error::Unexpected)?;
 
+        let repo_root_path = p.clone();
+
         let commit = Object::Commit {
             path: p,
             content: Vec::new(),
@@ -67,7 +71,8 @@ impl Worktree {
 
         let mut wt = Worktree(vec![node]);
 
-        build_tree_from_files(&mut wt, 0, ignore)?;
+        // TODO pass repo_root_path here to strip prefix of paths.
+        build_tree_from_files(&mut wt, 0, &repo_root_path, ignore)?;
 
         wt.0[0].obj.update_digest()?;
 
@@ -102,7 +107,29 @@ impl Worktree {
         Ok(self.0[0].obj.digest())
     }
 
-    pub(crate) fn restore_files(&self) -> Result<(), Error> {
+    pub(crate) fn restore_files(self, root_path: PathBuf) -> Result<(), Error> {
+        for node in self.0 {
+            match node.obj {
+                Object::Commit { .. } => (),
+                Object::Tree { path, .. } => {
+                    let path_to_restore = root_path.join(path);
+                    fs::create_dir(&path_to_restore)?;
+                    fs::set_permissions(
+                        path_to_restore,
+                        fs::Permissions::from_mode(DEFAULT_DIR_PERMISSIONS),
+                    )?;
+                }
+                Object::Blob { path, content, .. } => {
+                    let path_to_restore = root_path.join(path);
+                    fs::write(&path_to_restore, content)?;
+                    fs::set_permissions(
+                        path_to_restore,
+                        fs::Permissions::from_mode(DEFAULT_FILE_PERMISSIONS),
+                    )?;
+                }
+            }
+        }
+
         Ok(())
     }
 }
@@ -182,21 +209,32 @@ fn build_children(
     Ok(res)
 }
 
-fn build_tree_from_files(wt: &mut Worktree, current: NodeId, ignore: &[&str]) -> Result<(), Error> {
+fn build_tree_from_files(
+    wt: &mut Worktree,
+    current: NodeId,
+    repo_root: &PathBuf,
+    ignore: &[&str],
+) -> Result<(), Error> {
     let mut new_cur: usize = Default::default();
 
-    let entries = fs::read_dir(wt.0[current].obj.path())?;
+    let entries = fs::read_dir(repo_root.join(wt.0[current].obj.path()))?;
     for entry in entries {
         let e = entry?;
 
-        if is_ignored(e.path(), ignore)? {
+        if is_ignored(&e.path(), ignore) {
             continue;
         }
+
+        let full_path = e.path();
+
+        let relative_path = full_path
+            .strip_prefix(repo_root)
+            .map_err(|_| Error::Unexpected)?;
 
         let ftype = e.file_type()?;
         if ftype.is_dir() {
             let tree = Object::Tree {
-                path: e.path(),
+                path: relative_path.to_owned(),
                 content: Vec::new(),
                 digest: String::default(),
             };
@@ -211,10 +249,11 @@ fn build_tree_from_files(wt: &mut Worktree, current: NodeId, ignore: &[&str]) ->
 
             wt.0[current].children.push(new_cur); // Update parent's children with new node.
 
-            build_tree_from_files(wt, new_cur, ignore)?;
+            build_tree_from_files(wt, new_cur, repo_root, ignore)?;
         } else if ftype.is_file() {
             let blob = Object::Blob {
-                path: e.path(),
+                path: relative_path.to_owned(),
+                full_path,
                 content: String::default(),
                 digest: String::default(),
             };
@@ -256,19 +295,39 @@ fn save_all_children(root_path: &Path, wt: &Worktree, cursor: usize) -> Result<(
     Ok(())
 }
 
-fn is_ignored(path: PathBuf, ignored: &[&str]) -> Result<bool, Error> {
-    for i in ignored.iter() {
-        let parent_path = path.parent().ok_or(Error::Unexpected)?;
-        let relative_path = path
-            .strip_prefix(parent_path)
-            .map_err(|_| Error::Unexpected)?
-            .to_str()
-            .ok_or(Error::Unexpected)?;
-
-        if relative_path.contains(i) {
-            return Ok(true);
+fn is_ignored(path: &PathBuf, ignored: &[&str]) -> bool {
+    for pattern in ignored.iter() {
+        for segment in path.components() {
+            if segment.as_os_str() == *pattern {
+                return true;
+            }
         }
     }
 
-    Ok(false)
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_ignored() {
+        const IGNORE: &[&str] = &[".git", ".gitignore", "target", ".get"];
+
+        let path = PathBuf::from("./hello/iamnot/ignore");
+        assert!(!is_ignored(&path, IGNORE));
+
+        let path = PathBuf::from("./edgecase/hello.get");
+        assert!(!is_ignored(&path, IGNORE));
+
+        let path = PathBuf::from("./oneanotheredgecase/mytarget/hey.rs");
+        assert!(!is_ignored(&path, IGNORE));
+
+        let path = PathBuf::from("./dir/target/hello");
+        assert!(is_ignored(&path, IGNORE));
+
+        let path = PathBuf::from("./dir/.git/hello");
+        assert!(is_ignored(&path, IGNORE));
+    }
 }

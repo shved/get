@@ -1,5 +1,5 @@
 use std::fs;
-use std::mem;
+// use std::mem;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
@@ -41,13 +41,18 @@ fn repo_workflow() {
     assert!(cur_head.is_ok());
     assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST,);
 
+    // TODO add second commit.
+
     // Init again and fail.
     assert!(get::init(&mut root_path).is_err());
 
     assert!(get::restore(root_path.clone(), FIRST_COMMIT_DIGEST).is_ok());
 
+    let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
+    assert!(cur_head.is_ok());
+    assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST,);
+    // TODO check files contents consistency after restore.
     // mem::forget(repo_root);
-    // Uncomment to review the project folder after test run.
 }
 
 fn setup_project_dir(root_path: &mut PathBuf) {
