@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::object::{Object, ObjectString};
 use crate::paths;
+use crate::IGNORE;
 use crate::{DEFAULT_DIR_PERMISSIONS, DEFAULT_FILE_PERMISSIONS};
 
 use std::ffi::OsString;
@@ -68,7 +69,7 @@ impl Worktree {
 
         let mut wt = Worktree(vec![node]);
 
-        build_tree_from_files(&mut wt, 0, ignore)?;
+        build_tree_from_files(&mut wt, 0)?;
 
         wt.0[0].obj.update_digest()?;
 
@@ -109,7 +110,7 @@ impl Worktree {
                 Object::Commit { .. } => (),
                 Object::Tree { path, .. } => {
                     let path_to_restore = paths::get_working_dir().unwrap().join(path);
-                    fs::create_dir(&path_to_restore)?;
+                    fs::create_dir_all(&path_to_restore)?;
                     fs::set_permissions(
                         path_to_restore,
                         fs::Permissions::from_mode(DEFAULT_DIR_PERMISSIONS),
@@ -128,6 +129,28 @@ impl Worktree {
 
         Ok(())
     }
+}
+
+pub(crate) fn clean_before_restore() -> Result<(), Error> {
+    let entries = fs::read_dir(paths::get_working_dir().unwrap())?;
+    for entry in entries {
+        let e = entry?;
+
+        if is_ignored(&e.path(), IGNORE) {
+            continue;
+        }
+
+        let ftype = e.file_type()?;
+        if ftype.is_dir() {
+            fs::remove_dir_all(e.path())?;
+        } else if ftype.is_file() {
+            fs::remove_file(e.path())?;
+        } else if ftype.is_symlink() {
+            unimplemented!("get: we don't deal with symlinks here, please use real CVS like git")
+        }
+    }
+
+    Ok(())
 }
 
 fn restore_tree_from_storage(wt: &mut Worktree, i: NodeId) -> Result<(), Error> {
@@ -197,7 +220,7 @@ fn build_children(lines: Vec<String>, parent_path: PathBuf) -> Result<Vec<Node>,
     Ok(res)
 }
 
-fn build_tree_from_files(wt: &mut Worktree, current: NodeId, ignore: &[&str]) -> Result<(), Error> {
+fn build_tree_from_files(wt: &mut Worktree, current: NodeId) -> Result<(), Error> {
     let mut new_cur: usize = Default::default();
 
     let entries = fs::read_dir(
@@ -205,10 +228,11 @@ fn build_tree_from_files(wt: &mut Worktree, current: NodeId, ignore: &[&str]) ->
             .unwrap()
             .join(wt.0[current].obj.path()),
     )?;
+
     for entry in entries {
         let e = entry?;
 
-        if is_ignored(&e.path(), ignore) {
+        if is_ignored(&e.path(), IGNORE) {
             continue;
         }
 
@@ -236,7 +260,7 @@ fn build_tree_from_files(wt: &mut Worktree, current: NodeId, ignore: &[&str]) ->
 
             wt.0[current].children.push(new_cur); // Update parent's children with new node.
 
-            build_tree_from_files(wt, new_cur, ignore)?;
+            build_tree_from_files(wt, new_cur)?;
         } else if ftype.is_file() {
             let blob = Object::Blob {
                 path: relative_path.to_owned(),

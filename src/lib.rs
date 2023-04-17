@@ -15,7 +15,7 @@ use std::time::SystemTime;
 const DEFAULT_FILE_PERMISSIONS: u32 = 0o644;
 const DEFAULT_DIR_PERMISSIONS: u32 = 0o755;
 const EMPTY_REF: &str = "0000000000000000000000000000000000000000";
-const IGNORE: &[&str] = &[".git", ".gitignore", "target", ".get"];
+const IGNORE: &[&str] = &[".git", ".gitignore", "target", ".get", ".get.toml"];
 
 pub fn init(work_dir: &mut PathBuf) -> Result<(), Error> {
     paths::check_no_repo_dir(work_dir)?;
@@ -48,6 +48,8 @@ pub fn restore(working_dir: PathBuf, digest: &str) -> Result<(), Error> {
     paths::set_working_dir(working_dir.clone());
 
     let wt = Worktree::from_commit(digest.to_owned())?;
+
+    worktree::clean_before_restore()?;
 
     wt.restore_files()?;
 

@@ -179,12 +179,15 @@ impl Object {
                 zipper.finish()?;
             }
             Self::Tree {
-                content, digest, ..
+                path,
+                content,
+                digest,
+                ..
             } => {
                 let f = File::create(paths::tree_path().join(digest))?;
 
                 let mut zipper = GzBuilder::new()
-                    .filename(digest.as_bytes())
+                    .filename(path.file_name().unwrap().to_str().unwrap())
                     // TODO save dir timestamp to restore it as well
                     // .extra(timestamp.as_secs().into())
                     .write(f, Compression::default());
@@ -193,12 +196,15 @@ impl Object {
                 zipper.finish()?;
             }
             Self::Blob {
-                content, digest, ..
+                path,
+                content,
+                digest,
+                ..
             } => {
                 let f = File::create(paths::blob_path().join(digest))?;
 
                 let mut zipper = GzBuilder::new()
-                    .filename(digest.as_bytes())
+                    .filename(path.file_name().unwrap().to_str().unwrap())
                     // TODO save file timestamp to restore it as well
                     // .extra(timestamp.as_secs().into())
                     .write(f, Compression::default());
