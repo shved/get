@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 use tempdir::TempDir;
 
 const FIRST_COMMIT_DIGEST: &str = "bbe631775aa4859f39dd10474aadd0df87267a89";
-const SECOND_COMMIT_DIGEST: &str = "86ca9c6413582e196fb4d51fee6b9b9f9d98c669";
+const SECOND_COMMIT_DIGEST: &str = "13fd5d1c1810bb00952944aa19f3e697eae9689b";
 
 #[test]
 fn repo_workflow() {
@@ -65,7 +65,14 @@ fn repo_workflow() {
     assert!(cur_head.is_ok());
     assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST,);
 
-    // std::mem::forget(repo_root);
+    assert!(get::restore(working_dir.clone(), SECOND_COMMIT_DIGEST).is_ok());
+
+    // Check commit digest was updated into HEAD after restore a previous commit.
+    let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
+    assert!(cur_head.is_ok());
+    assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
+
+    std::mem::forget(repo_root);
 }
 
 fn modify_files(working_dir: &PathBuf) {
@@ -78,6 +85,12 @@ fn modify_files(working_dir: &PathBuf) {
     fs::rename(
         working_dir.join("test").join("test_file1.txt"),
         working_dir.join("test").join("new_name.txt"),
+    )
+    .unwrap();
+
+    fs::write(
+        working_dir.join("test").join("new_name.txt"),
+        b"and now it is modified!",
     )
     .unwrap();
 }

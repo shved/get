@@ -228,14 +228,14 @@ impl Object {
             return Err(Error::Unexpected);
         }
 
-        let commit = Object::Commit {
+        let commit = dbg!(Object::Commit {
             path: paths::get_working_dir().unwrap().to_owned(),
             properties: lines[0..=3].to_vec(),
             content: lines[4..].to_vec(),
             message: lines[3].clone(),
             timestamp: Duration::new(lines[2].parse::<u64>().unwrap(), 0),
             digest,
-        };
+        });
 
         Ok(commit)
     }
@@ -253,11 +253,11 @@ impl Object {
 
         let children: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();
 
-        let tree = Object::Tree {
+        let tree = dbg!(Object::Tree {
             path,
             content: children,
             digest,
-        };
+        });
 
         Ok(tree)
     }
@@ -267,12 +267,12 @@ impl Object {
 
         let path = parent_path.join(name);
 
-        let blob = Object::Blob {
+        let blob = dbg!(Object::Blob {
             path,
             full_path: PathBuf::default(), // Not needed at this point.
             content,
             digest,
-        };
+        });
 
         Ok(blob)
     }

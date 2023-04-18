@@ -1,3 +1,4 @@
+// "2c92b1926814fe12defcc8859070354c8386e3d9"
 pub mod error;
 mod object;
 mod paths;
@@ -34,7 +35,7 @@ pub fn commit(working_dir: PathBuf, msg: Option<&str>, now: SystemTime) -> Resul
     let message = msg.unwrap_or("default commit message");
     let parent_commit_digest = read_head()?;
 
-    let wt = Worktree::from_files(parent_commit_digest, message, IGNORE, now)?;
+    let wt = Worktree::from_files(parent_commit_digest, message, now)?;
 
     let new_commit_digest = wt.save_commit().map(|s| s.to_string())?;
 

@@ -32,7 +32,6 @@ impl Worktree {
     pub(crate) fn from_files(
         parent_commit_digest: String,
         message: &str,
-        ignore: &[&str],
         now: SystemTime,
     ) -> Result<Worktree, Error> {
         let timestamp = now
