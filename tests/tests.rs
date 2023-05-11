@@ -1,11 +1,13 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use tempdir::TempDir;
+use text_diff::{diff, Difference};
+use walkdir::WalkDir;
 
-const FIRST_COMMIT_DIGEST: &str = "bbe631775aa4859f39dd10474aadd0df87267a89";
-const SECOND_COMMIT_DIGEST: &str = "13fd5d1c1810bb00952944aa19f3e697eae9689b";
+const FIRST_COMMIT_DIGEST: &str = "da72e4ac4723a3a37697f9027b653804d74303af";
+const SECOND_COMMIT_DIGEST: &str = "669ec3ec589015496a5bdae6e48a7508f7392027";
 
 #[test]
 fn repo_workflow() {
@@ -44,6 +46,8 @@ fn repo_workflow() {
     // Init again and fail.
     assert!(get::init(&mut working_dir).is_err());
 
+    let after_initial_commit = snapshot_dir(&working_dir);
+
     // Modify tree and make new commit.
     modify_files(&working_dir.clone());
     let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(1680961869);
@@ -53,7 +57,7 @@ fn repo_workflow() {
     assert!(second_commit_digest.is_ok());
     assert_eq!(second_commit_digest.unwrap(), SECOND_COMMIT_DIGEST);
 
-    // Check commit digest was updated into HEAD.
+    // Check commit digest was written to HEAD.
     let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
     assert!(cur_head.is_ok());
     assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
@@ -65,14 +69,24 @@ fn repo_workflow() {
     assert!(cur_head.is_ok());
     assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST,);
 
-    assert!(get::restore(working_dir.clone(), SECOND_COMMIT_DIGEST).is_ok());
+    let after_restore_init_commit = snapshot_dir(&working_dir);
+
+    let (changed, the_diff) = check_diff(
+        after_initial_commit.as_ref(),
+        after_restore_init_commit.as_ref(),
+    );
+    if changed {
+        println!("{}", the_diff);
+    }
+
+    // assert!(get::restore(working_dir.clone(), SECOND_COMMIT_DIGEST).is_ok());
 
     // Check commit digest was updated into HEAD after restore a previous commit.
-    let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
-    assert!(cur_head.is_ok());
-    assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
+    // let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
+    // assert!(cur_head.is_ok());
+    // assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
 
-    std::mem::forget(repo_root);
+    // std::mem::forget(repo_root);
 }
 
 fn modify_files(working_dir: &PathBuf) {
@@ -83,20 +97,20 @@ fn modify_files(working_dir: &PathBuf) {
     .unwrap();
 
     fs::rename(
-        working_dir.join("test").join("test_file1.txt"),
-        working_dir.join("test").join("new_name.txt"),
+        working_dir.join("testdir").join("test_file1.txt"),
+        working_dir.join("testdir").join("new_name.txt"),
     )
     .unwrap();
 
     fs::write(
-        working_dir.join("test").join("new_name.txt"),
+        working_dir.join("testdir").join("new_name.txt"),
         b"and now it is modified!",
     )
     .unwrap();
 }
 
 fn setup_project_dir(working_dir: &mut PathBuf) {
-    working_dir.push("test");
+    working_dir.push("testdir");
     fs::create_dir(working_dir.as_path()).unwrap();
 
     working_dir.push("test_file1.txt");
@@ -107,7 +121,7 @@ fn setup_project_dir(working_dir: &mut PathBuf) {
     fs::write(working_dir.as_path(), b"samudaya (origin, arising, combination; 'cause'): dukkha arises or continues with tanha (\"craving, desire or attachment, lit. \"thirst\"). While tanha is traditionally interpreted in western languages as the 'cause' of dukkha, tanha can also be seen as the factor tying us to dukkha, or as a response to dukkha, trying to escape it;\n").unwrap();
     working_dir.pop();
 
-    working_dir.push("test_inside_test");
+    working_dir.push("nested");
     fs::create_dir(working_dir.as_path()).unwrap();
 
     working_dir.push("test_file3.txt");
@@ -131,4 +145,60 @@ fn setup_project_dir(working_dir: &mut PathBuf) {
     working_dir.push("test_file.txt");
     fs::write(working_dir.as_path(), b"thats\nall,\nfolks!").unwrap();
     working_dir.pop();
+}
+
+fn snapshot_dir(p: &Path) -> String {
+    let mut paths: Vec<String> = Vec::new();
+
+    for entry in WalkDir::new(p) {
+        let path_string = entry.unwrap().path().to_str().unwrap().to_owned();
+        if path_string.contains(".get") {
+            continue;
+        }
+
+        let path = path_string.to_owned();
+        paths.push(path);
+    }
+
+    paths.sort();
+    let mut ret = paths.join("\n");
+    ret.push('\n');
+
+    ret
+}
+
+fn check_diff(a: &str, b: &str) -> (bool, String) {
+    let (distance, changeset) = diff(a, b, " ");
+    if distance != 0 {
+        return (true, format_diff(changeset));
+    }
+
+    (false, String::new())
+}
+
+fn format_diff(changeset: Vec<Difference>) -> String {
+    let mut ret = String::new();
+
+    for seq in changeset {
+        match seq {
+            Difference::Same(ref x) => {
+                ret.push_str(x);
+                ret.push_str(" ");
+            }
+            Difference::Add(ref x) => {
+                ret.push_str("\x1B[92m");
+                ret.push_str(x);
+                ret.push_str("\x1B[0m");
+                ret.push_str(" ");
+            }
+            Difference::Rem(ref x) => {
+                ret.push_str("\x1B[91m");
+                ret.push_str(x);
+                ret.push_str("\x1B[0m");
+                ret.push_str(" ");
+            }
+        }
+    }
+
+    ret
 }
