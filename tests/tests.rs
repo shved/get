@@ -1,4 +1,6 @@
 use std::fs;
+use std::fs::File;
+use std::io::{prelude::*, BufReader};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
@@ -11,8 +13,6 @@ const SECOND_COMMIT_DIGEST: &str = "669ec3ec589015496a5bdae6e48a7508f7392027";
 
 #[test]
 fn repo_workflow() {
-    // TODO add the whole directory content digest calculation to detech any content changes after
-    // restoring a commit.
     let repo_root = TempDir::new("get_app_test").unwrap();
     let mut working_dir = repo_root.path().to_owned();
 
@@ -145,20 +145,26 @@ fn setup_project_dir(working_dir: &mut PathBuf) {
 }
 
 fn working_files_snapshot(p: &Path) -> String {
-    let mut paths: Vec<String> = Vec::new();
+    let mut contents: Vec<String> = Vec::new();
 
     for entry in WalkDir::new(p) {
-        let path_string = entry.unwrap().path().to_str().unwrap().to_owned();
+        let e = entry.unwrap();
+        let path_string = e.path().to_str().unwrap();
         if path_string.contains(".get") {
             continue;
         }
 
-        let path = path_string.to_owned();
-        paths.push(path);
+        let mut res = path_string.to_owned();
+        if e.file_type().is_file() {
+            let file_content = fs::read_to_string(e.path()).unwrap();
+            res = format!("{}\n{}", path_string, file_content);
+        }
+
+        contents.push(res);
     }
 
-    paths.sort();
-    let mut ret = paths.join("\n");
+    contents.sort();
+    let mut ret = contents.join("\n");
     ret.push('\n');
 
     ret
