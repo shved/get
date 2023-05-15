@@ -2,8 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
+use pretty_assertions::assert_eq;
 use tempdir::TempDir;
-use text_diff::{diff, Difference};
 use walkdir::WalkDir;
 
 const FIRST_COMMIT_DIGEST: &str = "da72e4ac4723a3a37697f9027b653804d74303af";
@@ -46,10 +46,12 @@ fn repo_workflow() {
     // Init again and fail.
     assert!(get::init(&mut working_dir).is_err());
 
-    let after_initial_commit = snapshot_dir(&working_dir);
+    let after_initial_commit = working_files_snapshot(&working_dir);
 
     // Modify tree and make new commit.
     modify_files(&working_dir.clone());
+
+    let after_changes = working_files_snapshot(&working_dir);
     let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(1680961869);
     let commit_message: Option<&str> = Some("second commit descriptive message");
     let second_commit_digest = get::commit(working_dir.clone(), commit_message, timestamp);
@@ -69,22 +71,19 @@ fn repo_workflow() {
     assert!(cur_head.is_ok());
     assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST,);
 
-    let after_restore_init_commit = snapshot_dir(&working_dir);
+    let after_restore_init_commit = working_files_snapshot(&working_dir);
 
-    let (changed, the_diff) = check_diff(
-        after_initial_commit.as_ref(),
-        after_restore_init_commit.as_ref(),
-    );
-    if changed {
-        println!("{}", the_diff);
-    }
+    assert_eq!(after_initial_commit, after_restore_init_commit);
 
-    // assert!(get::restore(working_dir.clone(), SECOND_COMMIT_DIGEST).is_ok());
+    assert!(get::restore(working_dir.clone(), SECOND_COMMIT_DIGEST).is_ok());
+    let after_restore_second_commit = working_files_snapshot(&working_dir);
+
+    assert_eq!(after_changes, after_restore_second_commit);
 
     // Check commit digest was updated into HEAD after restore a previous commit.
-    // let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
-    // assert!(cur_head.is_ok());
-    // assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
+    let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
+    assert!(cur_head.is_ok());
+    assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
 
     // std::mem::forget(repo_root);
 }
@@ -147,7 +146,7 @@ fn setup_project_dir(working_dir: &mut PathBuf) {
     working_dir.pop();
 }
 
-fn snapshot_dir(p: &Path) -> String {
+fn working_files_snapshot(p: &Path) -> String {
     let mut paths: Vec<String> = Vec::new();
 
     for entry in WalkDir::new(p) {
@@ -163,42 +162,6 @@ fn snapshot_dir(p: &Path) -> String {
     paths.sort();
     let mut ret = paths.join("\n");
     ret.push('\n');
-
-    ret
-}
-
-fn check_diff(a: &str, b: &str) -> (bool, String) {
-    let (distance, changeset) = diff(a, b, " ");
-    if distance != 0 {
-        return (true, format_diff(changeset));
-    }
-
-    (false, String::new())
-}
-
-fn format_diff(changeset: Vec<Difference>) -> String {
-    let mut ret = String::new();
-
-    for seq in changeset {
-        match seq {
-            Difference::Same(ref x) => {
-                ret.push_str(x);
-                ret.push_str(" ");
-            }
-            Difference::Add(ref x) => {
-                ret.push_str("\x1B[92m");
-                ret.push_str(x);
-                ret.push_str("\x1B[0m");
-                ret.push_str(" ");
-            }
-            Difference::Rem(ref x) => {
-                ret.push_str("\x1B[91m");
-                ret.push_str(x);
-                ret.push_str("\x1B[0m");
-                ret.push_str(" ");
-            }
-        }
-    }
 
     ret
 }
