@@ -217,9 +217,8 @@ impl Object {
         Ok(())
     }
 
-    pub(crate) fn read_commit(digest: String) -> Result<Object, Error> {
-        let (_name, contents) =
-            decode_archive(paths::commits_path().join(digest.clone()).as_path())?;
+    pub(crate) fn from_commit(digest: String) -> Result<Object, Error> {
+        let contents = decode_archive(paths::commits_path().join(digest.clone()).as_path())?;
 
         let lines: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();
 
@@ -240,16 +239,14 @@ impl Object {
         Ok(commit)
     }
 
-    pub(crate) fn read_tree(parent_path: PathBuf, digest: String) -> Result<Object, Error> {
-        let (name, contents) = decode_archive(paths::tree_path().join(digest.clone()).as_path())?;
+    pub(crate) fn from_tree(digest: String, path: PathBuf) -> Result<Object, Error> {
+        let contents = decode_archive(paths::tree_path().join(digest.clone()).as_path())?;
 
         let lines: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();
 
         if lines.len() < 1 {
             return Err(Error::Unexpected);
         }
-
-        let path = parent_path.join(name);
 
         let children: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();
 
@@ -262,10 +259,8 @@ impl Object {
         Ok(tree)
     }
 
-    pub(crate) fn read_blob(parent_path: PathBuf, digest: String) -> Result<Object, Error> {
-        let (name, content) = decode_archive(paths::blob_path().join(digest.clone()).as_path())?;
-
-        let path = parent_path.join(name);
+    pub(crate) fn from_blob(digest: String, path: PathBuf) -> Result<Object, Error> {
+        let content = decode_archive(paths::blob_path().join(digest.clone()).as_path())?;
 
         let blob = Object::Blob {
             path,
@@ -285,17 +280,15 @@ fn format_commit_properties(props: Vec<String>) -> String {
     joined
 }
 
-fn decode_archive(path: &Path) -> Result<(String, String), Error> {
+fn decode_archive(path: &Path) -> Result<String, Error> {
     let f = File::open(path)?;
     let mut decoder = GzDecoder::new(f);
     let mut contents = String::new();
     decoder.read_to_string(&mut contents)?;
-    let header = decoder.header().ok_or(Error::Unexpected)?;
-    let filename_slice = header.filename().ok_or(Error::Unexpected)?;
-    let filename_str =
-        String::from_utf8(filename_slice.to_owned()).map_err(|_| Error::UnsupportedEncoding)?;
+    // Headers are not in use for now.
+    // let header = decoder.header().ok_or(Error::Unexpected)?;
 
-    Ok((filename_str, contents))
+    Ok(contents)
 }
 
 #[cfg(test)]

@@ -84,8 +84,6 @@ fn repo_workflow() {
     let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
     assert!(cur_head.is_ok());
     assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
-
-    // std::mem::forget(repo_root);
 }
 
 fn modify_files(working_dir: &PathBuf) {

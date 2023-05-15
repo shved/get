@@ -76,7 +76,7 @@ impl Worktree {
     }
 
     pub(crate) fn from_commit(digest: String) -> Result<Worktree, Error> {
-        let commit = Object::read_commit(digest)?;
+        let commit = Object::from_commit(digest)?;
 
         if !matches!(commit, Object::Commit { .. }) {
             // TODO Do smthg with this crap.
@@ -191,7 +191,7 @@ fn build_children(lines: Vec<String>, parent_path: PathBuf) -> Result<Vec<Node>,
 
         let node = match parts.0.as_ref() {
             paths::TREE_DIR => {
-                let tree = Object::read_tree(parent_path.clone(), parts.1)?;
+                let tree = Object::from_tree(parts.1, parent_path.join(parts.2))?;
 
                 let node = Node {
                     children: Vec::new(),
@@ -201,7 +201,7 @@ fn build_children(lines: Vec<String>, parent_path: PathBuf) -> Result<Vec<Node>,
                 node
             }
             paths::BLOB_DIR => {
-                let blob = Object::read_blob(parent_path.clone(), parts.1)?;
+                let blob = Object::from_blob(parts.1, parent_path.join(parts.2))?;
 
                 let node = Node {
                     children: Vec::new(),
