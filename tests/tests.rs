@@ -1,6 +1,4 @@
 use std::fs;
-use std::fs::File;
-use std::io::{prelude::*, BufReader};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
@@ -54,7 +52,8 @@ fn repo_workflow() {
     let after_changes = working_files_snapshot(&working_dir);
     let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(1680961869);
     let commit_message: Option<&str> = Some("second commit descriptive message");
-    let second_commit_digest = get::commit(working_dir.clone(), commit_message, timestamp);
+    // Call commit from nested directory here to check it will be handled well.
+    let second_commit_digest = get::commit(working_dir.join("testdir"), commit_message, timestamp);
 
     assert!(second_commit_digest.is_ok());
     assert_eq!(second_commit_digest.unwrap(), SECOND_COMMIT_DIGEST);
@@ -75,7 +74,8 @@ fn repo_workflow() {
 
     assert_eq!(after_initial_commit, after_restore_init_commit);
 
-    assert!(get::restore(working_dir.clone(), SECOND_COMMIT_DIGEST).is_ok());
+    // Call restore from nested directory here to check it will be handled well.
+    assert!(get::restore(working_dir.join("testdir/nested"), SECOND_COMMIT_DIGEST).is_ok());
     let after_restore_second_commit = working_files_snapshot(&working_dir);
 
     assert_eq!(after_changes, after_restore_second_commit);

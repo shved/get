@@ -6,7 +6,7 @@
 - [X] restore
 - [X] extract all the path variables to call config to not pass root_path through all the calls
 - [X] make it compare ignore entries to path segments to equality (https://doc.rust-lang.org/std/path/struct.Path.html#method.components)
-- [ ] make it work from any place, not just repo root directory (using Path.ancestors, check it in paths mod)
+- [X] make it work from any place, not just repo root directory (using Path.ancestors, check it in paths mod)
 - [ ] add support of getignore file (or even better just single .get.toml file with all the repo preferences and store options in static segment); warn if config not set, and defaults used
 - [ ] add doc comments
 - [ ] remake blob content to be a byte slice to support arbitrary binary data, not just utf-8 text files.

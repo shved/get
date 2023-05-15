@@ -46,16 +46,18 @@ pub(crate) fn log_path() -> PathBuf {
     get_working_dir().unwrap().join(REPO_DIR).join(LOG_FILE)
 }
 
-pub(crate) fn check_repo_dir(working_dir: &Path) -> Result<(), Error> {
-    if working_dir.join(REPO_DIR).is_dir() {
-        return Ok(());
+pub(crate) fn repo_dir(cur_dir: &Path) -> Result<PathBuf, Error> {
+    for a in cur_dir.ancestors() {
+        if a.join(REPO_DIR).is_dir() {
+            return Ok(a.to_owned());
+        }
     }
 
     Err(Error::NotAGetRepo)
 }
 
-pub(crate) fn check_no_repo_dir(working_dir: &PathBuf) -> Result<(), Error> {
-    if working_dir.join(REPO_DIR).is_dir() {
+pub(crate) fn check_no_repo_dir(cur_dir: &PathBuf) -> Result<(), Error> {
+    if cur_dir.join(REPO_DIR).is_dir() {
         return Err(Error::RepoAlreadyExist);
     }
 

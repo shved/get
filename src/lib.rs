@@ -27,9 +27,9 @@ pub fn init(work_dir: &mut PathBuf) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn commit(working_dir: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<String, Error> {
-    paths::check_repo_dir(working_dir.as_path())?;
-    paths::set_working_dir(working_dir.clone());
+pub fn commit(cur_dir: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<String, Error> {
+    let working_dir = paths::repo_dir(cur_dir.as_path())?;
+    paths::set_working_dir(working_dir);
 
     // TODO Change default message to smthg more informative.
     let message = msg.unwrap_or("default commit message");
@@ -44,9 +44,9 @@ pub fn commit(working_dir: PathBuf, msg: Option<&str>, now: SystemTime) -> Resul
     Ok(new_commit_digest)
 }
 
-pub fn restore(working_dir: PathBuf, digest: &str) -> Result<(), Error> {
-    paths::check_repo_dir(working_dir.as_path())?;
-    paths::set_working_dir(working_dir.clone());
+pub fn restore(cur_dir: PathBuf, digest: &str) -> Result<(), Error> {
+    let working_dir = paths::repo_dir(cur_dir.as_path())?;
+    paths::set_working_dir(working_dir);
 
     let wt = Worktree::from_commit(digest.to_owned())?;
 
