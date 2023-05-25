@@ -38,7 +38,7 @@ impl Worktree {
             .duration_since(UNIX_EPOCH)
             .map_err(|_| Error::Unexpected)?;
 
-        // TODO Try to use .get.toml config and use current user id as a fallback.
+        // TODO Use .get.toml config here.
         let author = get_current_username()
             .unwrap_or_else(|| {
                 warn!("couldn't fetch user name, default user name used instead");
@@ -135,7 +135,7 @@ pub(crate) fn clean_before_restore() -> Result<(), Error> {
     for entry in entries {
         let e = entry?;
 
-        if is_ignored(&e.path(), IGNORE) {
+        if is_ignored(&e.path(), IGNORE.get().unwrap()) {
             continue;
         }
 
@@ -231,7 +231,7 @@ fn build_tree_from_files(wt: &mut Worktree, current: NodeId) -> Result<(), Error
     for entry in entries {
         let e = entry?;
 
-        if is_ignored(&e.path(), IGNORE) {
+        if is_ignored(&e.path(), IGNORE.get().unwrap()) {
             continue;
         }
 

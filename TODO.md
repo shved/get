@@ -7,16 +7,15 @@
 - [X] extract all the path variables to call config to not pass root_path through all the calls
 - [X] make it compare ignore entries to path segments to equality (https://doc.rust-lang.org/std/path/struct.Path.html#method.components)
 - [X] make it work from any place, not just repo root directory (using Path.ancestors, check it in paths mod)
-- [ ] add support of getignore file (or even better just single .get.toml file with all the repo preferences and store options in static segment); warn if config not set, and defaults used
+- [X] .get.toml file with all the repo preferences (including getignore) and store options in static segment
+- [ ] change default commit message to something sensible (a timestamp? files changed?)
 - [ ] add doc comments
 - [ ] remake blob content to be a byte slice to support arbitrary binary data, not just utf-8 text files.
-- [ ] add static config
 - [ ] commit log
 - [ ] delete last commit
 - [ ] diff
 - [ ] branches
 - [ ] research and maybe set update timestamp to restored files to the time from extra gzip header segment
-- [ ] support diffs
 - [ ] push/pull via ssh + conflicts detection
 - [ ] handle interrupt signal trying to clean up after the current job is interrupted
 - [ ] command to delete dangling objects (gc)

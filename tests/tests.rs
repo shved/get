@@ -16,6 +16,7 @@ fn repo_workflow() {
 
     setup_project_dir(&mut working_dir);
 
+    // Check it won't work in random dir with no repo initialized.
     assert!(get::commit(working_dir.clone(), None, SystemTime::now()).is_err());
 
     // Init.
@@ -39,7 +40,7 @@ fn repo_workflow() {
 
     let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
     assert!(cur_head.is_ok());
-    assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST,);
+    assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST);
 
     // Init again and fail.
     assert!(get::init(&mut working_dir).is_err());
@@ -84,6 +85,8 @@ fn repo_workflow() {
     let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
     assert!(cur_head.is_ok());
     assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
+
+    // std::mem::forget(repo_root);
 }
 
 fn modify_files(working_dir: &PathBuf) {
@@ -107,6 +110,13 @@ fn modify_files(working_dir: &PathBuf) {
 }
 
 fn setup_project_dir(working_dir: &mut PathBuf) {
+    working_dir.push(".get.toml");
+    let config: &str = "ignore = [\".git\", \".gitignore\", \".idea\"]
+        author = \"Vitalii Shvedchenko\"
+        ";
+    fs::write(working_dir.as_path(), config.as_bytes()).unwrap();
+    working_dir.pop();
+
     working_dir.push("testdir");
     fs::create_dir(working_dir.as_path()).unwrap();
 

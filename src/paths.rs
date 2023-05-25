@@ -64,9 +64,11 @@ pub(crate) fn check_no_repo_dir(cur_dir: &PathBuf) -> Result<(), Error> {
     Ok(())
 }
 
-pub(crate) fn set_working_dir(working_dir: PathBuf) {
-    // TODO here check the parents directories if the give directory doesnt contain a repo.
+pub(crate) fn set_working_dir(cur_dir: &Path) -> Result<(), Error> {
+    let working_dir = repo_dir(cur_dir)?;
     WORK_DIR.set(working_dir).ok();
+
+    Ok(())
 }
 
 pub(crate) fn get_working_dir() -> Result<&'static PathBuf, Error> {
