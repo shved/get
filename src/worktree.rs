@@ -130,22 +130,24 @@ impl Worktree {
     }
 }
 
-pub(crate) fn clean_before_restore() -> Result<(), Error> {
-    let entries = fs::read_dir(paths::get_working_dir().unwrap())?;
-    for entry in entries {
-        let e = entry?;
+pub(crate) fn clean_before_restore(p: &Path) -> Result<(), Error> {
+    let entries = fs::read_dir(p)?.map(|e| e.unwrap());
 
+    for e in entries {
         if is_ignored(&e.path(), IGNORE.get().unwrap()) {
             continue;
         }
 
         let ftype = e.file_type()?;
         if ftype.is_dir() {
-            fs::remove_dir_all(e.path())?;
+            clean_before_restore(&e.path())?;
+            if fs::read_dir(&e.path()).into_iter().count() == 0 {
+                fs::remove_dir(e.path())?;
+            }
         } else if ftype.is_file() {
             fs::remove_file(e.path())?;
         } else if ftype.is_symlink() {
-            unimplemented!("get: we don't deal with symlinks here, please use real CVS like git")
+            unimplemented!("get: we don't deal with symlinks here, please use real CVS like git");
         }
     }
 

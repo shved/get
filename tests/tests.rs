@@ -33,6 +33,7 @@ fn repo_workflow() {
     // Initial commit.
     let commit_message: Option<&str> = Some("descriptive message");
     let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(1680961369);
+    // TODO Check author name.
     let first_commit_digest = get::commit(working_dir.clone(), commit_message, timestamp);
 
     assert!(first_commit_digest.is_ok());
@@ -42,7 +43,7 @@ fn repo_workflow() {
     assert!(cur_head.is_ok());
     assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST);
 
-    // Init again and fail.
+    // Init again and fail since repo is alread initialized.
     assert!(get::init(&mut working_dir).is_err());
 
     let after_initial_commit = working_files_snapshot(&working_dir);
@@ -53,7 +54,8 @@ fn repo_workflow() {
     let after_changes = working_files_snapshot(&working_dir);
     let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(1680961869);
     let commit_message: Option<&str> = Some("second commit descriptive message");
-    // Call commit from nested directory here to check it will be handled well.
+
+    // Commit the changes from nested directory here to check it will be handled well.
     let second_commit_digest = get::commit(working_dir.join("testdir"), commit_message, timestamp);
 
     assert!(second_commit_digest.is_ok());
@@ -64,6 +66,7 @@ fn repo_workflow() {
     assert!(cur_head.is_ok());
     assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
 
+    // Restore the first commit.
     assert!(get::restore(working_dir.clone(), FIRST_COMMIT_DIGEST).is_ok());
 
     // Check commit digest was updated into HEAD after restore a previous commit.
@@ -119,6 +122,10 @@ fn setup_project_dir(working_dir: &mut PathBuf) {
 
     working_dir.push("testdir");
     fs::create_dir(working_dir.as_path()).unwrap();
+
+    working_dir.push(".idea");
+    fs::write(working_dir.as_path(), b"this file should be ignored").unwrap();
+    working_dir.pop();
 
     working_dir.push("test_file1.txt");
     fs::write(working_dir.as_path(), b"dukkha (literally \"suffering\"; here \"unsatisfactoriness\") is an innate characteristic of existence in the realm of samsara;\n").unwrap();

@@ -67,7 +67,7 @@ pub fn restore(cur_dir: PathBuf, digest: &str) -> Result<(), Error> {
 
     let wt = Worktree::from_commit(digest.to_owned())?;
 
-    worktree::clean_before_restore()?;
+    worktree::clean_before_restore(paths::get_working_dir().unwrap())?;
 
     wt.restore_files()?;
 
@@ -161,10 +161,10 @@ fn prepare_repo_command(cur_dir: PathBuf) -> Result<(), Error> {
 fn setup_config() -> Result<(), Error> {
     if let Ok(cfg_file) = fs::read_to_string(paths::get_working_dir().unwrap().join(".get.toml")) {
         let cfg: Config = toml::from_str(cfg_file.as_ref()).map_err(|_| Error::Unexpected)?;
-        CONF.set(cfg);
+        let _ = CONF.set(cfg);
     } else {
         warn!("could not read config file, default is set");
-        CONF.set(default_config());
+        let _ = CONF.set(default_config());
     }
 
     // Setup ignore patterns.
@@ -179,7 +179,7 @@ fn setup_config() -> Result<(), Error> {
         DEFAULT_IGNORE,
     ]
     .concat();
-    IGNORE.set(all_ignore_patterns);
+    let _ = IGNORE.set(all_ignore_patterns);
 
     Ok(())
 }
