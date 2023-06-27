@@ -21,5 +21,4 @@
 - [ ] handle interrupt signal trying to clean up after the current job is interrupted
 - [ ] command to delete dangling objects (gc)
 - [ ] support multiline commit message
-- [ ] guard repo with advisory lock while executing command?
-- [ ] deal with empty folders
+- [ ] deal with empty folders (not needed)

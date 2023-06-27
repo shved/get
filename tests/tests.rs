@@ -6,8 +6,8 @@ use pretty_assertions::assert_eq;
 use tempdir::TempDir;
 use walkdir::WalkDir;
 
-const FIRST_COMMIT_DIGEST: &str = "da72e4ac4723a3a37697f9027b653804d74303af";
-const SECOND_COMMIT_DIGEST: &str = "669ec3ec589015496a5bdae6e48a7508f7392027";
+const FIRST_COMMIT_DIGEST: &str = "410f802802a2135fb469b540deb03d9b22156cc4";
+const SECOND_COMMIT_DIGEST: &str = "f3e2e7175083265ebf0fd760931d31c2c3c1221d";
 
 #[test]
 fn repo_workflow() {
@@ -33,7 +33,6 @@ fn repo_workflow() {
     // Initial commit.
     let commit_message: Option<&str> = Some("descriptive message");
     let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(1680961369);
-    // TODO Check author name.
     let first_commit_digest = get::commit(working_dir.clone(), commit_message, timestamp);
 
     assert!(first_commit_digest.is_ok());

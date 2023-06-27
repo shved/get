@@ -1,18 +1,16 @@
 use crate::error::Error;
 use crate::object::{Object, ObjectString};
 use crate::paths;
+use crate::CONF;
 use crate::IGNORE;
 use crate::{DEFAULT_DIR_PERMISSIONS, DEFAULT_FILE_PERMISSIONS};
 
-use std::ffi::OsString;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use itertools::Itertools;
-use log::warn;
-use users::get_current_username;
 
 type NodeId = usize;
 
@@ -38,21 +36,14 @@ impl Worktree {
             .duration_since(UNIX_EPOCH)
             .map_err(|_| Error::Unexpected)?;
 
-        // TODO Use .get.toml config here.
-        let author = get_current_username()
-            .unwrap_or_else(|| {
-                warn!("couldn't fetch user name, default user name used instead");
-                OsString::from("unknown author")
-            })
-            .into_string()
-            .map_err(|_| Error::Unexpected)?;
+        let author: &str = CONF.get().unwrap().author.as_ref();
 
         let commit = Object::Commit {
             path: paths::get_working_dir().unwrap().to_owned(),
             content: Vec::new(),
             properties: vec![
                 parent_commit_digest,
-                author,
+                author.to_string(),
                 timestamp.as_secs().to_string(),
                 message.to_string(),
             ],
