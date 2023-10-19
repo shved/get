@@ -10,11 +10,11 @@ use std::ffi::OsString;
 use std::fs;
 use std::io;
 use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
 use log::warn;
-use once_cell::sync::OnceCell;
 use serde::Deserialize;
 use toml;
 use users::get_current_username;
@@ -24,56 +24,103 @@ const DEFAULT_DIR_PERMISSIONS: u32 = 0o755;
 const EMPTY_REF: &str = "0000000000000000000000000000000000000000";
 const DEFAULT_IGNORE: &[&str] = &[".get", ".get.toml"]; // Default ignore patterns.
 
-pub(crate) static CONF: OnceCell<Config> = OnceCell::new();
-pub(crate) static IGNORE: OnceCell<Vec<&str>> = OnceCell::new();
-
 #[derive(Debug, Deserialize)]
 pub(crate) struct Config {
     #[serde(default)]
     ignore: Vec<String>,
     #[serde(default = "default_author")]
     author: String,
-    #[serde(default)]
-    remotes: Vec<String>, // TODO Use some URL kind of type.
+    // #[serde(default)]
+    // remotes: Vec<String>, // TODO Use some URL kind of type.
 }
 
-pub fn init(work_dir: &mut PathBuf) -> Result<(), Error> {
-    paths::check_no_repo_dir(work_dir)?;
-
-    create_utility_dirs(work_dir)?;
-    create_utility_files(work_dir)?;
-
-    Ok(())
+pub struct Repo {
+    // TODO move it from paths to Repo struct instance
+    work_dir: PathBuf,
+    config: Config,
+    head: String,
 }
 
-pub fn commit(cur_dir: PathBuf, msg: Option<&str>, now: SystemTime) -> Result<String, Error> {
-    prepare_repo_command(cur_dir)?;
+impl Repo {
+    // TODO Rework it to actually take &Path instead of mut PathBuf.
+    pub fn init(work_dir: &mut PathBuf) -> Result<Repo, Error> {
+        paths::check_no_repo_dir(work_dir)?;
 
-    // TODO Change default message to smthg more informative.
-    let message = msg.unwrap_or("default commit message");
-    let parent_commit_digest = read_head()?;
+        create_utility_dirs(work_dir)?;
+        create_utility_files(work_dir)?;
 
-    let wt = Worktree::from_files(parent_commit_digest, message, now)?;
+        Ok(Repo {
+            work_dir: work_dir.clone(),
+            config: default_config(), // TODO
+            head: String::from(EMPTY_REF),
+        })
+    }
 
-    let new_commit_digest = wt.save_commit().map(|s| s.to_string())?;
+    pub fn try_from(cur_dir: &PathBuf) -> Result<Repo, Error> {
+        let work_dir = paths::repo_dir(cur_dir)?;
 
-    write_head(new_commit_digest.as_str())?;
+        let config = read_config(cur_dir.as_path())?;
 
-    Ok(new_commit_digest)
+        let head = read_head(work_dir.as_path())?;
+
+        Ok(Repo {
+            work_dir,
+            config,
+            head,
+        })
+    }
+
+    pub fn commit(&self, msg: Option<&str>, now: SystemTime) -> Result<String, Error> {
+        // TODO Change default message to smthg more informative.
+        let message = msg.unwrap_or("default commit message");
+
+        let wt = Worktree::from_files(&self, message, now)?;
+
+        let new_commit_digest = wt
+            .save_commit(self.work_dir.as_ref())
+            .map(|s| s.to_string())?;
+
+        self.write_head(new_commit_digest.as_str())?;
+
+        Ok(new_commit_digest)
+    }
+
+    pub fn restore(&self, digest: &str) -> Result<(), Error> {
+        let wt = Worktree::from_commit(digest.to_owned(), self.work_dir.as_path())?;
+
+        worktree::clean_before_restore(self.work_dir.as_path(), &self)?;
+
+        wt.restore_files(self)?;
+
+        self.write_head(digest)?;
+
+        Ok(())
+    }
+
+    fn write_head(&self, digest: &str) -> Result<(), Error> {
+        fs::write(paths::head_path(self.work_dir.as_path()), digest)?;
+
+        Ok(())
+    }
 }
 
-pub fn restore(cur_dir: PathBuf, digest: &str) -> Result<(), Error> {
-    prepare_repo_command(cur_dir)?;
+pub(crate) fn read_config(work_dir: &Path) -> Result<Config, Error> {
+    let config: Config;
 
-    let wt = Worktree::from_commit(digest.to_owned())?;
+    if let Ok(cfg_file) = fs::read_to_string(work_dir.join(".get.toml")) {
+        config = toml::from_str(cfg_file.as_ref()).map_err(|_| Error::Unexpected)?;
+    } else {
+        warn!("could not read config file, default is set");
+        config = default_config();
+    }
 
-    worktree::clean_before_restore(paths::get_working_dir().unwrap())?;
+    Ok(config)
+}
 
-    wt.restore_files()?;
+fn read_head(base_path: &Path) -> Result<String, Error> {
+    let str = fs::read_to_string(paths::head_path(base_path))?;
 
-    write_head(digest)?;
-
-    Ok(())
+    Ok(str)
 }
 
 fn create_utility_dirs(cur_path: &mut PathBuf) -> Result<(), Error> {
@@ -137,58 +184,10 @@ fn create_utility_files(cur_path: &mut PathBuf) -> io::Result<()> {
     Ok(())
 }
 
-fn read_head() -> Result<String, Error> {
-    let str = fs::read_to_string(paths::head_path())?;
-
-    Ok(str)
-}
-
-fn write_head(digest: &str) -> Result<(), Error> {
-    fs::write(paths::head_path(), digest)?;
-
-    Ok(())
-}
-
-// TODO Yet '.get.toml' is a questionable name.
-fn prepare_repo_command(cur_dir: PathBuf) -> Result<(), Error> {
-    paths::set_working_dir(cur_dir.as_path())?;
-
-    setup_config()?;
-
-    Ok(())
-}
-
-fn setup_config() -> Result<(), Error> {
-    if let Ok(cfg_file) = fs::read_to_string(paths::get_working_dir().unwrap().join(".get.toml")) {
-        let cfg: Config = toml::from_str(cfg_file.as_ref()).map_err(|_| Error::Unexpected)?;
-        let _ = CONF.set(cfg);
-    } else {
-        warn!("could not read config file, default is set");
-        let _ = CONF.set(default_config());
-    }
-
-    // Setup ignore patterns.
-    let all_ignore_patterns: Vec<&str> = [
-        CONF.get()
-            .unwrap()
-            .ignore
-            .iter()
-            .map(|el| el.as_str())
-            .collect::<Vec<&str>>()
-            .as_slice(),
-        DEFAULT_IGNORE,
-    ]
-    .concat();
-    let _ = IGNORE.set(all_ignore_patterns);
-
-    Ok(())
-}
-
 fn default_config() -> Config {
     Config {
         ignore: vec![],
         author: default_author(),
-        remotes: vec![],
     }
 }
 

@@ -156,7 +156,7 @@ impl Object {
         }
     }
 
-    pub(crate) fn save_object(&self) -> Result<(), Error> {
+    pub(crate) fn save_object(&self, work_dir: &Path) -> Result<(), Error> {
         match self {
             Self::Commit {
                 content,
@@ -166,7 +166,7 @@ impl Object {
                 digest,
                 ..
             } => {
-                let f = File::create(paths::commits_path().join(digest))?;
+                let f = File::create(paths::commits_path(work_dir).join(digest))?;
 
                 let mut zipper = GzBuilder::new()
                     .filename(digest.as_bytes())
@@ -184,7 +184,7 @@ impl Object {
                 digest,
                 ..
             } => {
-                let f = File::create(paths::tree_path().join(digest))?;
+                let f = File::create(paths::tree_path(work_dir).join(digest))?;
 
                 let mut zipper = GzBuilder::new()
                     .filename(path.file_name().unwrap().to_str().unwrap())
@@ -201,7 +201,7 @@ impl Object {
                 digest,
                 ..
             } => {
-                let f = File::create(paths::blob_path().join(digest))?;
+                let f = File::create(paths::blob_path(work_dir).join(digest))?;
 
                 let mut zipper = GzBuilder::new()
                     .filename(path.file_name().unwrap().to_str().unwrap())
@@ -217,8 +217,9 @@ impl Object {
         Ok(())
     }
 
-    pub(crate) fn from_commit(digest: String) -> Result<Object, Error> {
-        let contents = decode_archive(paths::commits_path().join(digest.clone()).as_path())?;
+    pub(crate) fn from_commit(digest: String, work_dir: &Path) -> Result<Object, Error> {
+        let contents =
+            decode_archive(paths::commits_path(work_dir).join(digest.clone()).as_path())?;
 
         let lines: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();
 
@@ -228,7 +229,7 @@ impl Object {
         }
 
         let commit = Object::Commit {
-            path: paths::get_working_dir().unwrap().to_owned(),
+            path: work_dir.to_owned(),
             properties: lines[0..=3].to_vec(),
             content: lines[4..].to_vec(),
             message: lines[3].clone(),
@@ -239,8 +240,12 @@ impl Object {
         Ok(commit)
     }
 
-    pub(crate) fn from_tree(digest: String, path: PathBuf) -> Result<Object, Error> {
-        let contents = decode_archive(paths::tree_path().join(digest.clone()).as_path())?;
+    pub(crate) fn from_tree(
+        digest: String,
+        path: PathBuf,
+        work_dir: &Path,
+    ) -> Result<Object, Error> {
+        let contents = decode_archive(paths::tree_path(work_dir).join(digest.clone()).as_path())?;
 
         let lines: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();
 
@@ -259,8 +264,12 @@ impl Object {
         Ok(tree)
     }
 
-    pub(crate) fn from_blob(digest: String, path: PathBuf) -> Result<Object, Error> {
-        let content = decode_archive(paths::blob_path().join(digest.clone()).as_path())?;
+    pub(crate) fn from_blob(
+        digest: String,
+        path: PathBuf,
+        work_dir: &Path,
+    ) -> Result<Object, Error> {
+        let content = decode_archive(paths::blob_path(work_dir).join(digest.clone()).as_path())?;
 
         let blob = Object::Blob {
             path,
