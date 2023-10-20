@@ -6,8 +6,8 @@ use pretty_assertions::assert_eq;
 use tempdir::TempDir;
 use walkdir::WalkDir;
 
-const FIRST_COMMIT_DIGEST: &str = "410f802802a2135fb469b540deb03d9b22156cc4";
-const SECOND_COMMIT_DIGEST: &str = "f3e2e7175083265ebf0fd760931d31c2c3c1221d";
+const FIRST_COMMIT_DIGEST: &str = "59298b459fb7761f2151181e91bf89cfbb0e1a53";
+const SECOND_COMMIT_DIGEST: &str = "3afc8fb0b6b14629839eacbf44f43b39e8f286ec";
 
 #[test]
 // TODO add test for Repo::try_from
@@ -33,58 +33,59 @@ fn repo_workflow() {
     let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(1680961369);
     let first_commit_digest = repo.commit(commit_message, timestamp);
 
-    std::mem::forget(repo_root);
     assert!(first_commit_digest.is_ok());
     assert_eq!(first_commit_digest.unwrap(), FIRST_COMMIT_DIGEST);
 
-    // let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
-    // assert!(cur_head.is_ok());
-    // assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST);
+    let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
+    assert!(cur_head.is_ok());
+    assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST);
 
-    // // Init again and fail since repo is alread initialized.
-    // assert!(get::Repo::init(&mut working_dir).is_err());
+    // Init again and fail since repo is alread initialized.
+    assert!(get::Repo::init(&mut working_dir).is_err());
 
-    // let after_initial_commit = working_files_snapshot(&working_dir);
+    let after_initial_commit = working_files_snapshot(&working_dir);
 
-    // // Modify tree and make new commit.
-    // modify_files(&working_dir.clone());
+    // Modify tree and make new commit.
+    modify_files(&working_dir.clone());
 
-    // let after_changes = working_files_snapshot(&working_dir);
-    // let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(1680961869);
-    // let commit_message: Option<&str> = Some("second commit descriptive message");
+    let after_changes = working_files_snapshot(&working_dir);
+    let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(1680961869);
+    let commit_message: Option<&str> = Some("second commit descriptive message");
 
-    // let second_commit_digest = repo.commit(commit_message, timestamp);
+    let second_commit_digest = repo.commit(commit_message, timestamp);
 
-    // assert!(second_commit_digest.is_ok());
-    // assert_eq!(second_commit_digest.unwrap(), SECOND_COMMIT_DIGEST);
+    assert!(second_commit_digest.is_ok());
+    assert_eq!(second_commit_digest.unwrap(), SECOND_COMMIT_DIGEST);
 
-    // // Check commit digest was written to HEAD.
-    // let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
-    // assert!(cur_head.is_ok());
-    // assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
+    // Check commit digest was written to HEAD.
+    let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
+    assert!(cur_head.is_ok());
+    assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
 
-    // // Restore the first commit.
-    // assert!(repo.restore(FIRST_COMMIT_DIGEST).is_ok());
+    // Restore the first commit.
+    assert!(repo.restore(FIRST_COMMIT_DIGEST).is_ok());
 
-    // // Check commit digest was updated into HEAD after restore a previous commit.
-    // let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
-    // assert!(cur_head.is_ok());
-    // assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST,);
+    // Check commit digest was updated into HEAD after restore a previous commit.
+    let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
+    assert!(cur_head.is_ok());
+    assert_eq!(cur_head.unwrap(), FIRST_COMMIT_DIGEST,);
 
-    // let after_restore_init_commit = working_files_snapshot(&working_dir);
+    let after_restore_init_commit = working_files_snapshot(&working_dir);
 
-    // assert_eq!(after_initial_commit, after_restore_init_commit);
+    assert_eq!(after_initial_commit, after_restore_init_commit);
 
-    // // Restore second commit.
-    // assert!(repo.restore(SECOND_COMMIT_DIGEST).is_ok());
-    // let after_restore_second_commit = working_files_snapshot(&working_dir);
+    // std::mem::forget(repo_root);
 
-    // assert_eq!(after_changes, after_restore_second_commit);
+    // Restore second commit.
+    assert!(repo.restore(SECOND_COMMIT_DIGEST).is_ok());
+    let after_restore_second_commit = working_files_snapshot(&working_dir);
 
-    // // Check commit digest was updated into HEAD after restore a previous commit.
-    // let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
-    // assert!(cur_head.is_ok());
-    // assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
+    assert_eq!(after_changes, after_restore_second_commit);
+
+    // Check commit digest was updated into HEAD after restore a previous commit.
+    let cur_head = fs::read_to_string(repo_root.path().join(".get/HEAD"));
+    assert!(cur_head.is_ok());
+    assert_eq!(cur_head.unwrap(), SECOND_COMMIT_DIGEST,);
 }
 
 fn modify_files(working_dir: &PathBuf) {
