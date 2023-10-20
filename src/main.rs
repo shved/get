@@ -36,7 +36,7 @@ fn main() {
     });
 
     match matches.subcommand() {
-        Some(("init", _)) => match get::init(&mut cur_dir) {
+        Some(("init", _)) => match get::Repo::init(&mut cur_dir) {
             Ok(_) => {
                 info!("Repo created!");
             }
@@ -48,7 +48,14 @@ fn main() {
         Some(("commit", sub_matches)) => {
             let msg = sub_matches.get_one::<String>("message");
             let sys_time = SystemTime::now();
-            match get::commit(cur_dir, msg.map(|s| s.as_str()), sys_time) {
+            let repo = match get::Repo::try_from(&cur_dir) {
+                Ok(repo) => repo,
+                Err(err) => {
+                    error!("{err}");
+                    exit(1);
+                }
+            };
+            match repo.commit(msg.map(|s| s.as_str()), sys_time) {
                 Ok(commit_digest) => {
                     info!("Commit {} saved successfully.", commit_digest);
                 }
@@ -61,7 +68,14 @@ fn main() {
         Some(("restore", sub_matches)) => {
             // We unwrap here safely since digest is explicitly required by clap.
             let digest = sub_matches.get_one::<String>("digest").unwrap();
-            match get::restore(cur_dir, digest.as_str()) {
+            let repo = match get::Repo::try_from(&cur_dir) {
+                Ok(repo) => repo,
+                Err(err) => {
+                    error!("{err}");
+                    exit(1);
+                }
+            };
+            match repo.restore(digest.as_str()) {
                 Ok(_) => {
                     info!("Commit {} restored successfully.", digest);
                 }

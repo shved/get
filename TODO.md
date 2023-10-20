@@ -9,6 +9,9 @@
 - [X] make it work from any place, not just repo root directory (using Path.ancestors, check it in paths mod)
 - [X] .get.toml file with all the repo preferences (including getignore) and store options in static segment
 - [ ] dmzmk feedback
+    - [ ] introduce repo struct
+        - [ ] change main.rs to instantiate repo
+    - [ ] make worktree a part of repo struct
 - [ ] change default commit message to something sensible (a timestamp? files changed?)
 - [ ] add doc comments
 - [ ] remake blob content to be a byte slice to support arbitrary binary data, not just utf-8 text files.
