@@ -25,12 +25,17 @@ struct Node {
 /// to build it, calculate digests and put it on the disk.
 pub(crate) struct Worktree(Vec<Node>);
 
-impl Worktree {
+pub(crate) struct RepoWithState {
+    repo: Repo,
+    wt: Worktree,
+}
+
+impl RepoWithState {
     pub(crate) fn from_files(
-        repo: &Repo,
+        repo: Repo,
         message: &str,
         now: SystemTime,
-    ) -> Result<Worktree, Error> {
+    ) -> Result<RepoWithState, Error> {
         let timestamp = now
             .duration_since(UNIX_EPOCH)
             .map_err(|_| Error::Unexpected)?;
@@ -58,15 +63,15 @@ impl Worktree {
 
         let mut wt = Worktree(vec![node]);
 
-        build_tree_from_files(&mut wt, 0, repo)?;
+        build_tree_from_files(&mut wt, 0, &repo)?;
 
         wt.0[0].obj.update_digest()?;
 
-        Ok(wt)
+        Ok(RepoWithState { repo, wt })
     }
 
-    pub(crate) fn from_commit(digest: String, base_path: &Path) -> Result<Worktree, Error> {
-        let commit = Object::from_commit(digest, base_path)?;
+    pub(crate) fn from_commit(repo: Repo, digest: String) -> Result<RepoWithState, Error> {
+        let commit = repo.from_commit(digest)?;
 
         if !matches!(commit, Object::Commit { .. }) {
             // TODO Do smthg with this crap.
@@ -80,21 +85,21 @@ impl Worktree {
 
         let mut wt = Worktree(vec![node]);
 
-        restore_tree_from_storage(&mut wt, 0, base_path)?;
+        wt.restore_tree_from_storage(&repo, 0)?;
 
-        Ok(wt)
+        Ok(RepoWithState { repo, wt })
     }
 
-    pub(crate) fn save_commit(&self, base_path: &Path) -> Result<&str, Error> {
-        let working_dir = self.0[0].obj.path();
+    pub(crate) fn save_commit(&self) -> Result<&str, Error> {
+        let working_dir = self.wt.0[0].obj.path();
 
-        save_all_children(working_dir, self, 0, base_path)?;
+        self.save_all_children(working_dir, 0)?;
 
-        Ok(self.0[0].obj.digest())
+        Ok(self.wt.0[0].obj.digest())
     }
 
     pub(crate) fn restore_files(self, repo: &Repo) -> Result<(), Error> {
-        for node in self.0.into_iter() {
+        for node in self.wt.0.into_iter() {
             match node.obj {
                 Object::Commit { .. } => (),
                 Object::Tree { path, .. } => {
@@ -113,6 +118,91 @@ impl Worktree {
                         fs::Permissions::from_mode(DEFAULT_FILE_PERMISSIONS),
                     )?;
                 }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn save_all_children(&self, working_dir: &Path, cursor: usize) -> Result<(), Error> {
+        self.repo.save_object(self.wt.0[cursor].obj)?;
+
+        for i in self.wt.0[cursor].children.as_slice() {
+            self.save_all_children(working_dir, *i)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Repo {
+    fn build_children(&self, lines: Vec<String>, parent_path: PathBuf) -> Result<Vec<Node>, Error> {
+        let mut res = Vec::<Node>::new();
+
+        for l in lines {
+            let parts: ObjectString = l
+                .split("\t")
+                .map(|s| s.to_string())
+                .collect_tuple()
+                .unwrap();
+
+            let node = match parts.0.as_ref() {
+                paths::TREE_DIR => {
+                    let tree = self.from_tree(parts.1, parent_path.join(parts.2))?;
+
+                    let node = Node {
+                        children: Vec::new(),
+                        obj: tree,
+                    };
+
+                    node
+                }
+                paths::BLOB_DIR => {
+                    let blob = self.from_blob(parts.1, parent_path.join(parts.2))?;
+
+                    let node = Node {
+                        children: Vec::new(),
+                        obj: blob,
+                    };
+
+                    node
+                }
+                _ => unreachable!(),
+            };
+
+            res.push(node);
+        }
+
+        Ok(res)
+    }
+}
+
+impl Worktree {
+    fn restore_tree_from_storage(&self, repo: &Repo, i: NodeId) -> Result<(), Error> {
+        let mut children: Vec<Node>;
+
+        match &mut self.0.get(i).ok_or(Error::Unexpected)?.obj {
+            Object::Commit { content, path, .. } => {
+                children = repo.build_children(content.clone(), path.clone())?;
+            }
+            Object::Tree { content, path, .. } => {
+                children = repo.build_children(content.clone(), path.clone())?;
+            }
+            Object::Blob { .. } => {
+                children = Vec::<Node>::new();
+            }
+        }
+
+        if children.len() > 0 {
+            self.0.append(&mut children);
+
+            for ix in (i + 1)..self.0.len() {
+                self.0
+                    .get_mut(i)
+                    .ok_or(Error::Unexpected)?
+                    .children
+                    .push(ix);
+                self.restore_tree_from_storage(repo, ix)?;
             }
         }
 
@@ -142,77 +232,6 @@ pub(crate) fn clean_before_restore(p: &Path, repo: &Repo) -> Result<(), Error> {
     }
 
     Ok(())
-}
-
-fn restore_tree_from_storage(wt: &mut Worktree, i: NodeId, base_path: &Path) -> Result<(), Error> {
-    let mut children: Vec<Node>;
-
-    match &wt.0.get(i).ok_or(Error::Unexpected)?.obj {
-        Object::Commit { content, path, .. } => {
-            children = build_children(content.clone(), path.clone(), base_path)?;
-        }
-        Object::Tree { content, path, .. } => {
-            children = build_children(content.clone(), path.clone(), base_path)?;
-        }
-        Object::Blob { .. } => {
-            children = Vec::<Node>::new();
-        }
-    }
-
-    if children.len() > 0 {
-        wt.0.append(&mut children);
-
-        for ix in (i + 1)..wt.0.len() {
-            wt.0.get_mut(i).ok_or(Error::Unexpected)?.children.push(ix);
-            restore_tree_from_storage(wt, ix, base_path)?;
-        }
-    }
-
-    Ok(())
-}
-
-fn build_children(
-    lines: Vec<String>,
-    parent_path: PathBuf,
-    base_path: &Path,
-) -> Result<Vec<Node>, Error> {
-    let mut res = Vec::<Node>::new();
-
-    for l in lines {
-        let parts: ObjectString = l
-            .split("\t")
-            .map(|s| s.to_string())
-            .collect_tuple()
-            .unwrap();
-
-        let node = match parts.0.as_ref() {
-            paths::TREE_DIR => {
-                let tree = Object::from_tree(parts.1, parent_path.join(parts.2), base_path)?;
-
-                let node = Node {
-                    children: Vec::new(),
-                    obj: tree,
-                };
-
-                node
-            }
-            paths::BLOB_DIR => {
-                let blob = Object::from_blob(parts.1, parent_path.join(parts.2), base_path)?;
-
-                let node = Node {
-                    children: Vec::new(),
-                    obj: blob,
-                };
-
-                node
-            }
-            _ => unreachable!(),
-        };
-
-        res.push(node);
-    }
-
-    Ok(res)
 }
 
 fn build_tree_from_files(wt: &mut Worktree, current: NodeId, repo: &Repo) -> Result<(), Error> {
@@ -282,21 +301,6 @@ fn build_tree_from_files(wt: &mut Worktree, current: NodeId, repo: &Repo) -> Res
             // Update current node digest.
             wt.0[current].obj.update_digest()?;
         }
-    }
-
-    Ok(())
-}
-
-fn save_all_children(
-    working_dir: &Path,
-    wt: &Worktree,
-    cursor: usize,
-    base_path: &Path,
-) -> Result<(), Error> {
-    wt.0[cursor].obj.save_object(base_path)?;
-
-    for i in wt.0[cursor].children.as_slice() {
-        save_all_children(working_dir, wt, *i, base_path)?;
     }
 
     Ok(())
