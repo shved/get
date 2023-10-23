@@ -4,7 +4,7 @@ mod paths;
 mod worktree;
 
 use crate::error::Error;
-use crate::worktree::Worktree;
+use crate::worktree::RepoWithState;
 
 use std::ffi::OsString;
 use std::fs;
@@ -24,7 +24,7 @@ const DEFAULT_DIR_PERMISSIONS: u32 = 0o755;
 const EMPTY_REF: &str = "0000000000000000000000000000000000000000";
 const DEFAULT_IGNORE: &[&str] = &[".get", ".get.toml"]; // Default ignore patterns.
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct Config {
     #[serde(default)]
     ignore: Vec<String>,
@@ -34,8 +34,8 @@ pub(crate) struct Config {
     // remotes: Vec<String>, // TODO Use some URL kind of type.
 }
 
+#[derive(Debug, Clone)]
 pub struct Repo {
-    // TODO move it from paths to Repo struct instance
     work_dir: PathBuf,
     config: Config,
     head: String,
@@ -43,24 +43,24 @@ pub struct Repo {
 
 impl Repo {
     // TODO Rework it to actually take &Path instead of mut PathBuf.
-    pub fn init(work_dir: &mut PathBuf) -> Result<Repo, Error> {
-        paths::check_no_repo_dir(work_dir)?;
+    pub fn init(cur_dir: &mut PathBuf) -> Result<Repo, Error> {
+        paths::check_no_repo_dir(cur_dir)?;
 
-        create_utility_dirs(work_dir)?;
-        create_utility_files(work_dir)?;
+        create_utility_dirs(cur_dir)?;
+        create_utility_files(cur_dir)?;
+
+        let config = resolve_config(cur_dir.as_path())?;
 
         Ok(Repo {
-            work_dir: work_dir.clone(),
-            config: default_config(), // TODO
+            work_dir: cur_dir.clone(),
+            config,
             head: String::from(EMPTY_REF),
         })
     }
 
     pub fn try_from(cur_dir: &PathBuf) -> Result<Repo, Error> {
         let work_dir = paths::repo_dir(cur_dir)?;
-
-        let config = read_config(cur_dir.as_path())?;
-
+        let config = resolve_config(cur_dir.as_path())?;
         let head = read_head(work_dir.as_path())?;
 
         Ok(Repo {
@@ -74,37 +74,33 @@ impl Repo {
         // TODO Change default message to smthg more informative.
         let message = msg.unwrap_or("default commit message");
 
-        let wt = Worktree::from_files(&self, message, now)?;
-
-        let new_commit_digest = wt
-            .save_commit(self.work_dir.as_ref())
-            .map(|s| s.to_string())?;
-
+        let repo_with_state = RepoWithState::from_files(self.clone(), message, now)?;
+        let new_commit_digest = repo_with_state.save_commit().map(|s| s.to_string())?;
         self.write_head(new_commit_digest.as_str())?;
 
         Ok(new_commit_digest)
     }
 
     pub fn restore(&self, digest: &str) -> Result<(), Error> {
-        let wt = Worktree::from_commit(digest.to_owned(), self.work_dir.as_path())?;
+        // Check the commit exists before cleaning the directory.
+        let _ = self.read_commit_object(digest.to_owned())?;
 
         worktree::clean_before_restore(self.work_dir.as_path(), &self)?;
-
-        wt.restore_files(self)?;
-
+        let repo_with_state = RepoWithState::from_commit(self.clone(), digest.to_owned())?;
+        repo_with_state.restore_files()?;
         self.write_head(digest)?;
 
         Ok(())
     }
 
     fn write_head(&self, digest: &str) -> Result<(), Error> {
-        fs::write(paths::head_path(self.work_dir.as_path()), digest)?;
+        fs::write(paths::head_path(self.work_dir.as_ref()), digest)?;
 
         Ok(())
     }
 }
 
-pub(crate) fn read_config(work_dir: &Path) -> Result<Config, Error> {
+fn resolve_config(work_dir: &Path) -> Result<Config, Error> {
     let config: Config;
 
     if let Ok(cfg_file) = fs::read_to_string(work_dir.join(".get.toml")) {

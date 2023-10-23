@@ -12,7 +12,7 @@ use std::time::Duration;
 use flate2::{read::GzDecoder, Compression, GzBuilder};
 use sha1_smol::Sha1;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum Object {
     Commit {
         path: PathBuf,
@@ -159,7 +159,7 @@ impl Object {
 }
 
 impl Repo {
-    pub(crate) fn save_object(&self, obj: Object) -> Result<(), Error> {
+    pub(crate) fn save_object(&self, obj: &Object) -> Result<(), Error> {
         match obj {
             Object::Commit {
                 content,
@@ -220,7 +220,7 @@ impl Repo {
         Ok(())
     }
 
-    pub(crate) fn from_commit(&self, digest: String) -> Result<Object, Error> {
+    pub(crate) fn read_commit_object(&self, digest: String) -> Result<Object, Error> {
         let contents = decode_archive(self.commits_path().join(digest.clone()).as_path())?;
 
         let lines: Vec<String> = contents.split("\n").map(|s| s.to_owned()).collect();

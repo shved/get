@@ -6,11 +6,10 @@ use pretty_assertions::assert_eq;
 use tempdir::TempDir;
 use walkdir::WalkDir;
 
-const FIRST_COMMIT_DIGEST: &str = "59298b459fb7761f2151181e91bf89cfbb0e1a53";
-const SECOND_COMMIT_DIGEST: &str = "3afc8fb0b6b14629839eacbf44f43b39e8f286ec";
+const FIRST_COMMIT_DIGEST: &str = "410f802802a2135fb469b540deb03d9b22156cc4";
+const SECOND_COMMIT_DIGEST: &str = "b049bd6b279fd006a75fb516f7f9c957d9422e9e";
 
 #[test]
-// TODO add test for Repo::try_from
 fn repo_workflow() {
     let repo_root = TempDir::new("get_app_test").unwrap();
     let mut working_dir = repo_root.path().to_owned();
@@ -18,7 +17,7 @@ fn repo_workflow() {
     setup_project_dir(&mut working_dir);
 
     // Init.
-    let repo = get::Repo::init(&mut working_dir).expect("repo initialization failed");
+    let _ = get::Repo::init(&mut working_dir).expect("repo initialization failed");
 
     assert!(working_dir.as_path().join(".get").is_dir());
     assert!(working_dir.as_path().join(".get/objects").is_dir());
@@ -27,6 +26,9 @@ fn repo_workflow() {
     assert!(working_dir.as_path().join(".get/objects/blob").is_dir());
     assert!(working_dir.as_path().join(".get/HEAD").is_file());
     assert!(working_dir.as_path().join(".get/LOG").is_file());
+
+    // Now lets get the ready repo.
+    let repo = get::Repo::try_from(&working_dir).expect("getting repo failed");
 
     // Initial commit.
     let commit_message: Option<&str> = Some("descriptive message");

@@ -33,13 +33,13 @@ impl Repo {
             .join(BLOB_DIR)
     }
 
-    pub(crate) fn head_path(&self) -> PathBuf {
-        self.work_dir.join(REPO_DIR).join(HEAD_FILE)
-    }
-
     pub(crate) fn log_path(&self) -> PathBuf {
         self.work_dir.join(REPO_DIR).join(LOG_FILE)
     }
+}
+
+pub(crate) fn head_path(work_dir: &Path) -> PathBuf {
+    work_dir.join(REPO_DIR).join(HEAD_FILE)
 }
 
 pub(crate) fn repo_dir(cur_dir: &Path) -> Result<PathBuf, Error> {

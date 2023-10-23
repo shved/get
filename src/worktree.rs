@@ -13,21 +13,22 @@ use itertools::Itertools;
 
 type NodeId = usize;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Node {
     children: Vec<NodeId>,
     obj: Object,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Datastructure to hold all the file objects for a commit. Uses vector as a memory arena, but
 /// elements are linked by the indexes used as pointers. It is very handy since we only need a tree
 /// to build it, calculate digests and put it on the disk.
 pub(crate) struct Worktree(Vec<Node>);
 
+#[derive(Debug, Clone)]
 pub(crate) struct RepoWithState {
-    repo: Repo,
-    wt: Worktree,
+    pub repo: Repo,
+    pub wt: Worktree,
 }
 
 impl RepoWithState {
@@ -71,7 +72,7 @@ impl RepoWithState {
     }
 
     pub(crate) fn from_commit(repo: Repo, digest: String) -> Result<RepoWithState, Error> {
-        let commit = repo.from_commit(digest)?;
+        let commit = repo.read_commit_object(digest)?;
 
         if !matches!(commit, Object::Commit { .. }) {
             // TODO Do smthg with this crap.
@@ -98,12 +99,12 @@ impl RepoWithState {
         Ok(self.wt.0[0].obj.digest())
     }
 
-    pub(crate) fn restore_files(self, repo: &Repo) -> Result<(), Error> {
+    pub(crate) fn restore_files(self) -> Result<(), Error> {
         for node in self.wt.0.into_iter() {
             match node.obj {
                 Object::Commit { .. } => (),
                 Object::Tree { path, .. } => {
-                    let path_to_restore = repo.work_dir.join(path);
+                    let path_to_restore = self.repo.work_dir.join(path);
                     fs::create_dir_all(&path_to_restore)?;
                     fs::set_permissions(
                         path_to_restore,
@@ -111,7 +112,7 @@ impl RepoWithState {
                     )?;
                 }
                 Object::Blob { path, content, .. } => {
-                    let path_to_restore = repo.work_dir.join(path);
+                    let path_to_restore = self.repo.work_dir.join(path);
                     fs::write(&path_to_restore, content)?;
                     fs::set_permissions(
                         path_to_restore,
@@ -124,11 +125,11 @@ impl RepoWithState {
         Ok(())
     }
 
-    fn save_all_children(&self, working_dir: &Path, cursor: usize) -> Result<(), Error> {
-        self.repo.save_object(self.wt.0[cursor].obj)?;
+    fn save_all_children(&self, dir: &Path, cursor: usize) -> Result<(), Error> {
+        self.repo.save_object(&self.wt.0[cursor].obj)?;
 
         for i in self.wt.0[cursor].children.as_slice() {
-            self.save_all_children(working_dir, *i)?;
+            self.save_all_children(dir, *i)?;
         }
 
         Ok(())
@@ -178,10 +179,10 @@ impl Repo {
 }
 
 impl Worktree {
-    fn restore_tree_from_storage(&self, repo: &Repo, i: NodeId) -> Result<(), Error> {
+    fn restore_tree_from_storage(&mut self, repo: &Repo, i: NodeId) -> Result<(), Error> {
         let mut children: Vec<Node>;
 
-        match &mut self.0.get(i).ok_or(Error::Unexpected)?.obj {
+        match &self.0.get(i).ok_or(Error::Unexpected)?.obj {
             Object::Commit { content, path, .. } => {
                 children = repo.build_children(content.clone(), path.clone())?;
             }
