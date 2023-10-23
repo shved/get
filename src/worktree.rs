@@ -75,7 +75,6 @@ impl RepoWithState {
         let commit = repo.read_commit_object(digest)?;
 
         if !matches!(commit, Object::Commit { .. }) {
-            // TODO Do smthg with this crap.
             return Err(Error::Unexpected);
         }
 

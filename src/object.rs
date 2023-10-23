@@ -276,7 +276,6 @@ impl Repo {
     }
 }
 
-// TODO Test it.
 fn format_commit_properties(props: Vec<String>) -> String {
     let mut joined = props.join("\n");
     joined.push('\n');
@@ -296,6 +295,7 @@ fn decode_archive(path: &Path) -> Result<String, Error> {
 
 #[cfg(test)]
 mod tests {
+    use super::format_commit_properties;
     use super::Object;
     use std::path::PathBuf;
     use std::time::Duration;
@@ -407,5 +407,12 @@ mod tests {
         let content_line = blob.obj_content_line();
         assert!(content_line.is_ok());
         assert!(content_line.unwrap() == String::from("blob\tdigest\todyssey.txt"));
+    }
+
+    #[test]
+    fn test_format_commit_properties() {
+        let props: Vec<String> = vec!["hello".to_string(), "my".to_string(), "dear".to_string()];
+        let result = format_commit_properties(props);
+        assert!(result == "hello\nmy\ndear\n".to_string());
     }
 }
