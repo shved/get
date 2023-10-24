@@ -8,10 +8,9 @@
 - [X] make it compare ignore entries to path segments to equality (https://doc.rust-lang.org/std/path/struct.Path.html#method.components)
 - [X] make it work from any place, not just repo root directory (using Path.ancestors, check it in paths mod)
 - [X] .get.toml file with all the repo preferences (including getignore) and store options in static segment
-- [ ] dmzmk feedback
-    - [X] rework it all to work with structs, remove shared state
-    - [ ] remake clap to a declarative style of use
+- [X] rework it all to work with structs, remove shared state
 - [ ] change default commit message to something sensible (a timestamp? files changed?)
+- [ ] rework tests to use `ramfs`
 - [ ] add doc comments
 - [ ] remake blob content to be a byte slice to support arbitrary binary data, not just utf-8 text files.
 - [ ] commit log
