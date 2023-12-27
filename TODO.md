@@ -23,3 +23,4 @@
 - [ ] command to delete dangling objects (gc)
 - [ ] support multiline commit message
 - [ ] deal with empty folders (not needed)
+- [ ] lock repo with .get/lock file
